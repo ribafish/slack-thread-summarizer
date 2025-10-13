@@ -2,8 +2,6 @@
 
 Serverless solution that summarizes Slack threads when marked with a 📌 (pushpin) reaction, creating a pull request with the summary to a knowledge base repository via GitHub Actions.
 
-Available in both **Kotlin** and **Python** implementations.
-
 ## Features
 
 - No always-on server required (serverless via GitHub Actions)
@@ -20,7 +18,7 @@ Available in both **Kotlin** and **Python** implementations.
 1. User adds 📌 reaction to Slack message
 2. Slack Workflow Builder detects reaction
 3. Workflow triggers GitHub Actions via API
-4. GitHub Actions runs processor (Kotlin or Python)
+4. GitHub Actions runs a Python script
 5. Processor creates PR with summary
 
 ## Prerequisites
@@ -109,9 +107,7 @@ For **private channels**, manually invite the bot:
 
 **Configure Webhook:**
 - Method: `POST`
-- URL: Choose based on your preferred implementation:
-  - **Kotlin**: `https://api.github.com/repos/{owner}/{repo}/actions/workflows/summarize-thread.yml/dispatches`
-  - **Python**: `https://api.github.com/repos/{owner}/{repo}/actions/workflows/summarize-thread-python.yml/dispatches`
+- URL: `https://api.github.com/repos/{owner}/{repo}/actions/workflows/summarize-thread-python.yml/dispatches`
   - Replace `{owner}` with your GitHub username
   - Replace `{repo}` with `slack-thread-summarizer`
 - Headers:
@@ -162,67 +158,23 @@ Slack Workflow Builder provides these automatically:
 
 ## Project Structure
 
-This repository contains two implementations:
-
-### Kotlin Implementation (Root)
 ```
-slack-thread-summarizer/
-├── .github/workflows/
-│   └── summarize-thread.yml     # GitHub Actions workflow (Kotlin)
-├── src/main/kotlin/com/ribafish/slacksummarizer/
-│   ├── Main.kt                  # CLI entry point
-│   ├── config/
-│   │   └── AppConfig.kt         # Configuration management
-│   ├── models/
-│   │   └── SlackThread.kt       # Data models
-│   └── services/
-│       ├── SlackService.kt      # Slack API interactions
-│       ├── GeminiService.kt     # AI summarization (Gemini)
-│       ├── ClaudeService.kt     # AI summarization (Claude)
-│       └── GitHubService.kt     # GitHub PR creation
-├── build.gradle.kts             # Gradle build configuration
-└── gradlew                      # Gradle wrapper
-```
-
-### Python Implementation (summarizer/)
-```
-summarizer/
+summarizer-python/
 ├── __init__.py
-├── main.py                      # Entry point
-├── config.py                    # Configuration management
-├── models.py                    # Data models
+├── main.py              # Entry point
+├── config.py            # Configuration management
+├── models.py            # Data models
 ├── services/
-│   ├── slack_service.py         # Slack API
-│   ├── gemini_service.py        # Gemini AI
-│   ├── claude_service.py        # Claude AI
-│   └── github_service.py        # GitHub API
-├── requirements.txt             # Python dependencies
-└── README.md                    # Python-specific docs
+│   ├── __init__.py
+│   ├── slack_service.py      # Slack API
+│   ├── gemini_service.py     # Gemini AI
+│   ├── claude_service.py     # Claude AI
+│   └── github_service.py     # GitHub API
+└── requirements.txt     # Python dependencies
 ```
-
-Both implementations have identical features and functionality.
 
 ## Local Testing
 
-### Kotlin Version
-```bash
-# Set environment variables
-export SLACK_BOT_TOKEN="xoxb-..."
-export GEMINI_API_KEY="..."
-export ANTHROPIC_API_KEY="..."
-export GITHUB_TOKEN="..."
-export KB_REPO_OWNER="..."
-export KB_REPO_NAME="..."
-export AI_PROVIDER="gemini"  # or "claude"
-
-# Build
-./gradlew build
-
-# Run with channel ID and message timestamp
-./gradlew run --args="C01234ABCD 1234567890.123456"
-```
-
-### Python Version
 ```bash
 # Set environment variables
 export SLACK_BOT_TOKEN="xoxb-..."
@@ -234,10 +186,10 @@ export KB_REPO_NAME="..."
 export AI_PROVIDER="gemini"  # or "claude"
 
 # Install dependencies
-pip install -r summarizer/requirements.txt
+pip install -r summarizer-python/requirements.txt
 
 # Run with channel ID and message timestamp
-python -m summarizer.main C01234ABCD 1234567890.123456
+python -m summarizer-python.main C01234ABCD 1234567890.123456
 ```
 
 ## Troubleshooting
@@ -254,7 +206,7 @@ python -m summarizer.main C01234ABCD 1234567890.123456
 - Ensure bot has access to Slack channels
 
 ### Gemini API errors
-- Verify API key is valid
+- Verify API key is.
 - Check quota limits
 - Review prompt size (very long threads may exceed limits)
 
