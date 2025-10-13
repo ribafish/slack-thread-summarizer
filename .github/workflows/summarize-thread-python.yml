@@ -1,0 +1,48 @@
+name: Summarize Slack Thread (Python)
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel_id:
+        description: 'Slack channel ID'
+        required: true
+        type: string
+      message_ts:
+        description: 'Message timestamp'
+        required: true
+        type: string
+      user_id:
+        description: 'User who added the reaction'
+        required: false
+        type: string
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'summarizer/requirements.txt'
+
+      - name: Install dependencies
+        run: |
+          pip install -r summarizer/requirements.txt
+
+      - name: Run summarizer
+        env:
+          AI_PROVIDER: ${{ vars.AI_PROVIDER || 'gemini' }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.KB_GITHUB_TOKEN }}
+          KB_REPO_OWNER: ${{ vars.KB_REPO_OWNER }}
+          KB_REPO_NAME: ${{ vars.KB_REPO_NAME }}
+        run: |
+          python -m summarizer.main "${{ inputs.channel_id }}" "${{ inputs.message_ts }}"
