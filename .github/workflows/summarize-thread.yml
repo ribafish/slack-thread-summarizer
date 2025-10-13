@@ -39,7 +39,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.KB_GITHUB_TOKEN }}
           KB_REPO_OWNER: ${{ vars.KB_REPO_OWNER }}
           KB_REPO_NAME: ${{ vars.KB_REPO_NAME }}
           CHANNEL_ID: ${{ inputs.channel_id }}
