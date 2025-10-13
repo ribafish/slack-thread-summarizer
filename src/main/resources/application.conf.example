@@ -1,20 +1,20 @@
 slack {
     botToken = ${?SLACK_BOT_TOKEN}
-    botToken = "xoxb-your-bot-token"
+}
+
+claude {
+    apiKey = ${?ANTHROPIC_API_KEY}
+    model = "claude-4-5-sonnet"
 }
 
 gemini {
     apiKey = ${?GEMINI_API_KEY}
-    apiKey = "your-gemini-api-key"
     model = "gemini-1.5-flash"
 }
 
 github {
     token = ${?GITHUB_TOKEN}
-    token = "your-github-token"
     repoOwner = ${?GITHUB_REPO_OWNER}
-    repoOwner = "your-github-username"
     repoName = ${?GITHUB_REPO_NAME}
-    repoName = "knowledge-base"
     branchPrefix = "summary-"
 }

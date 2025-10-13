@@ -15,7 +15,16 @@ dependencies {
     // Slack SDK
     implementation("com.slack.api:slack-api-client:1.36.2")
 
-    // Gemini API
+    // Claude API (Anthropic)
+    implementation("com.anthropic:anthropic-sdk-kotlin:0.1.0-alpha.1")
+
+    // HTTP client for Claude
+    implementation("io.ktor:ktor-client-core:2.3.7")
+    implementation("io.ktor:ktor-client-cio:2.3.7")
+    implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
+
+    // Gemini API (kept for reference, not used)
     implementation("com.google.ai.client.generativeai:generativeai:0.1.2")
 
     // GitHub API

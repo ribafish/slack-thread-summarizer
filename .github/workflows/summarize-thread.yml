@@ -36,7 +36,7 @@ jobs:
       - name: Run summarizer
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPO_OWNER: ${{ vars.GITHUB_REPO_OWNER }}
           GITHUB_REPO_NAME: ${{ vars.GITHUB_REPO_NAME }}

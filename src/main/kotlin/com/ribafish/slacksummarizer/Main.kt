@@ -1,6 +1,7 @@
 package com.ribafish.slacksummarizer
 
 import com.ribafish.slacksummarizer.config.AppConfig
+import com.ribafish.slacksummarizer.services.ClaudeService
 import com.ribafish.slacksummarizer.services.GeminiService
 import com.ribafish.slacksummarizer.services.GitHubService
 import com.ribafish.slacksummarizer.services.SlackService
@@ -27,7 +28,7 @@ fun main(args: Array<String>) = runBlocking {
         val config = AppConfig.load()
 
         val slackService = SlackService(config.slack)
-        val geminiService = GeminiService(config.gemini)
+        val claudeService = ClaudeService(config.claude)
         val githubService = GitHubService(config.github)
 
         // Fetch thread
@@ -42,8 +43,8 @@ fun main(args: Array<String>) = runBlocking {
         logger.info { "Fetched ${thread.messages.size} messages" }
 
         // Summarize
-        logger.info { "Generating summary..." }
-        val summary = geminiService.summarize(thread)
+        logger.info { "Generating summary with Claude..." }
+        val summary = claudeService.summarize(thread)
         logger.info { "Summary generated: ${summary.length} characters" }
 
         // Create PR
@@ -56,6 +57,8 @@ fun main(args: Array<String>) = runBlocking {
 
         logger.info { "✓ Pull request created: $prUrl" }
         println("PR_URL=$prUrl")
+
+        claudeService.close()
 
     } catch (e: Exception) {
         logger.error(e) { "Failed to process thread: ${e.message}" }

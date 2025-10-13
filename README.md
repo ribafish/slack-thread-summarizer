@@ -22,7 +22,7 @@ Serverless solution that summarizes Slack threads when marked with a 📌 (pushp
 ## Prerequisites
 
 - Slack workspace with Workflow Builder access
-- Google Gemini API key
+- Anthropic API key (for Claude)
 - GitHub personal access token
 - Knowledge base repository (can be this repo or separate)
 
@@ -38,7 +38,7 @@ Go to your repository → Settings → Secrets and variables → Actions
 
 Add these **Repository Secrets**:
 - `SLACK_BOT_TOKEN` - your Slack bot token (xoxb-...)
-- `GEMINI_API_KEY` - your Google Gemini API key
+- `ANTHROPIC_API_KEY` - your Anthropic API key
 - `GITHUB_TOKEN` - automatically provided by GitHub Actions (no action needed)
 
 Add these **Repository Variables**:
@@ -117,7 +117,8 @@ Slack Workflow Builder provides these automatically:
 1. In any Slack channel, react to a message with 📌 (`:pushpin:`)
 2. Slack Workflow triggers GitHub Actions
 3. Check the Actions tab in your GitHub repo to see progress
-4. When complete, a PR will be created in your knowledge base repo
+4. Claude generates a summary of the thread
+5. A PR is created in your knowledge base repo with the markdown summary
 
 ## Project Structure
 
@@ -133,7 +134,8 @@ slack-thread-summarizer/
 │   │   └── SlackThread.kt       # Data models
 │   └── services/
 │       ├── SlackService.kt      # Slack API interactions
-│       ├── GeminiService.kt     # AI summarization
+│       ├── ClaudeService.kt     # AI summarization (Claude)
+│       ├── GeminiService.kt     # AI summarization (Gemini - not used)
 │       └── GitHubService.kt     # GitHub PR creation
 └── src/main/resources/
     ├── application.conf.example # Configuration template
@@ -147,7 +149,7 @@ You can test the processor locally:
 ```bash
 # Set environment variables
 export SLACK_BOT_TOKEN="xoxb-..."
-export GEMINI_API_KEY="..."
+export ANTHROPIC_API_KEY="..."
 export GITHUB_TOKEN="..."
 export GITHUB_REPO_OWNER="..."
 export GITHUB_REPO_NAME="..."
@@ -172,10 +174,10 @@ export GITHUB_REPO_NAME="..."
 - Verify all secrets are set correctly
 - Ensure bot has access to Slack channels
 
-### Gemini API errors
+### Claude API errors
 - Verify API key is valid
-- Check quota limits
-- Review prompt size (very long threads may exceed limits)
+- Check rate limits and quota
+- Review prompt size (very long threads may exceed context limits)
 
 ### GitHub PR creation fails
 - Verify token has `repo` scope
@@ -184,11 +186,10 @@ export GITHUB_REPO_NAME="..."
 
 ## Cost
 
-This solution is effectively free for most use cases:
-- GitHub Actions: 2,000 free minutes/month
-- Each run takes ~1-2 minutes
-- Gemini: Free tier includes 60 requests/minute
-- No server costs
+Cost breakdown:
+- GitHub Actions: 2,000 free minutes/month (each run ~1-2 minutes)
+- Claude API: Pay-as-you-go, typically $0.01-0.05 per summary depending on thread length
+- No server hosting costs
 
 ## License
 

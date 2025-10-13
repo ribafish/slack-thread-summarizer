@@ -5,6 +5,7 @@ import java.io.File
 
 data class AppConfig(
     val slack: SlackConfig,
+    val claude: ClaudeConfig,
     val gemini: GeminiConfig,
     val github: GitHubConfig
 ) {
@@ -24,6 +25,10 @@ data class AppConfig(
                 slack = SlackConfig(
                     botToken = config.getString("slack.botToken")
                 ),
+                claude = ClaudeConfig(
+                    apiKey = config.getString("claude.apiKey"),
+                    model = config.getString("claude.model")
+                ),
                 gemini = GeminiConfig(
                     apiKey = config.getString("gemini.apiKey"),
                     model = config.getString("gemini.model")
@@ -41,6 +46,11 @@ data class AppConfig(
 
 data class SlackConfig(
     val botToken: String
+)
+
+data class ClaudeConfig(
+    val apiKey: String,
+    val model: String
 )
 
 data class GeminiConfig(
