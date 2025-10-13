@@ -175,9 +175,40 @@ class GitHubService(private val config: GitHubConfig) {
         // Remove sources section from existing content
         val contentWithoutSources = existingContent.replace(sourcesRegex, "").trim()
 
-        // Extract main content from new summary (without its title, as we keep existing structure)
+        // Extract keywords from new summary and merge with existing
+        val newKeywordsRegex = Regex("""\*\*Keywords:\*\*\s*(.+)""")
+        val newKeywords = newKeywordsRegex.find(newSummary)?.groupValues?.get(1)?.trim()?.split(",")?.map { it.trim() } ?: emptyList()
+
+        val existingKeywordsRegex = Regex("""\*\*Keywords:\*\*\s*(.+)""")
+        val existingKeywordsMatch = existingKeywordsRegex.find(contentWithoutSources)
+        val existingKeywords = existingKeywordsMatch?.groupValues?.get(1)?.trim()?.split(",")?.map { it.trim() } ?: emptyList()
+
+        // Merge keywords (deduplicate)
+        val mergedKeywords = (existingKeywords + newKeywords).distinct().take(10)
+
+        // Update keywords line in existing content
+        val contentWithUpdatedKeywords = if (existingKeywordsMatch != null && mergedKeywords.isNotEmpty()) {
+            contentWithoutSources.replace(existingKeywordsMatch.value, "**Keywords:** ${mergedKeywords.joinToString(", ")}")
+        } else if (mergedKeywords.isNotEmpty()) {
+            // Add keywords after title if not present
+            val lines = contentWithoutSources.lines().toMutableList()
+            val titleIndex = lines.indexOfFirst { it.startsWith("#") }
+            if (titleIndex >= 0 && titleIndex + 1 < lines.size) {
+                lines.add(titleIndex + 1, "")
+                lines.add(titleIndex + 2, "**Keywords:** ${mergedKeywords.joinToString(", ")}")
+                lines.joinToString("\n")
+            } else {
+                contentWithoutSources
+            }
+        } else {
+            contentWithoutSources
+        }
+
+        // Extract main content from new summary (without title and keywords)
         val newSummaryLines = newSummary.lines()
-        val newContentStart = newSummaryLines.indexOfFirst { !it.startsWith("#") && it.isNotBlank() }
+        val newContentStart = newSummaryLines.indexOfFirst {
+            !it.startsWith("#") && !it.contains("**Keywords:**") && it.isNotBlank()
+        }
         val newContent = if (newContentStart >= 0) {
             newSummaryLines.drop(newContentStart).joinToString("\n")
         } else {
@@ -210,7 +241,7 @@ class GitHubService(private val config: GitHubConfig) {
         }
 
         return """
-            $contentWithoutSources
+            $contentWithUpdatedKeywords
 
             ## Additional Context
 
