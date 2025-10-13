@@ -31,6 +31,15 @@ class SlackService(private val config: SlackConfig) {
             logger.debug(e) { "Exception joining channel $channelId: ${e.message}" }
         }
 
+        // Get workspace/team info
+        val teamInfo = try {
+            client.teamInfo()
+        } catch (e: Exception) {
+            logger.debug(e) { "Could not get team info" }
+            null
+        }
+        val workspaceId = teamInfo?.team?.id
+
         // Get channel info
         val channelInfo = client.conversationsInfo { req ->
             req.channel(channelId)
@@ -53,7 +62,7 @@ class SlackService(private val config: SlackConfig) {
 
         if (!repliesResponse.isOk) {
             logger.error { "Failed to fetch thread: ${repliesResponse.error}" }
-            return SlackThread(channelId, channelName, threadTs, emptyList())
+            return SlackThread(channelId, channelName, threadTs, emptyList(), workspaceId)
         }
 
         val messages = repliesResponse.messages.map { message ->
@@ -71,7 +80,8 @@ class SlackService(private val config: SlackConfig) {
             channelId = channelId,
             channelName = channelName,
             threadTs = threadTs,
-            messages = messages
+            messages = messages,
+            workspaceId = workspaceId
         )
     }
 }

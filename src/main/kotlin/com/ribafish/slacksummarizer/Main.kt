@@ -67,8 +67,10 @@ fun main(args: Array<String>) = runBlocking {
         logger.info { "Creating pull request..." }
         val prUrl = githubService.createPullRequest(
             summary = summary,
+            channelId = channelId,
             channelName = thread.channelName,
-            timestamp = messageTs
+            timestamp = messageTs,
+            workspaceId = thread.workspaceId
         )
 
         logger.info { "✓ Pull request created: $prUrl" }
