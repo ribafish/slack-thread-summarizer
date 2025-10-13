@@ -22,7 +22,7 @@ Serverless solution that summarizes Slack threads when marked with a 📌 (pushp
 ## Prerequisites
 
 - Slack workspace with Workflow Builder access
-- Anthropic API key (for Claude)
+- AI API key (Google Gemini or Anthropic Claude)
 - GitHub personal access token
 - Knowledge base repository (can be this repo or separate)
 
@@ -38,10 +38,12 @@ Go to your repository → Settings → Secrets and variables → Actions
 
 Add these **Repository Secrets**:
 - `SLACK_BOT_TOKEN` - your Slack bot token (xoxb-...)
-- `ANTHROPIC_API_KEY` - your Anthropic API key
+- `GEMINI_API_KEY` - your Google Gemini API key (if using Gemini)
+- `ANTHROPIC_API_KEY` - your Anthropic API key (if using Claude)
 - `GITHUB_TOKEN` - automatically provided by GitHub Actions (no action needed)
 
 Add these **Repository Variables**:
+- `AI_PROVIDER` - which AI to use: `gemini` (default) or `claude`
 - `GITHUB_REPO_OWNER` - owner of knowledge base repo (e.g., "yourusername")
 - `GITHUB_REPO_NAME` - name of knowledge base repo (e.g., "knowledge-base")
 
@@ -117,7 +119,7 @@ Slack Workflow Builder provides these automatically:
 1. In any Slack channel, react to a message with 📌 (`:pushpin:`)
 2. Slack Workflow triggers GitHub Actions
 3. Check the Actions tab in your GitHub repo to see progress
-4. Claude generates a summary of the thread
+4. AI (Gemini or Claude) generates a summary of the thread
 5. A PR is created in your knowledge base repo with the markdown summary
 
 ## Project Structure
@@ -134,8 +136,8 @@ slack-thread-summarizer/
 │   │   └── SlackThread.kt       # Data models
 │   └── services/
 │       ├── SlackService.kt      # Slack API interactions
+│       ├── GeminiService.kt     # AI summarization (Gemini)
 │       ├── ClaudeService.kt     # AI summarization (Claude)
-│       ├── GeminiService.kt     # AI summarization (Gemini - not used)
 │       └── GitHubService.kt     # GitHub PR creation
 └── src/main/resources/
     ├── application.conf.example # Configuration template
@@ -149,7 +151,7 @@ You can test the processor locally:
 ```bash
 # Set environment variables
 export SLACK_BOT_TOKEN="xoxb-..."
-export ANTHROPIC_API_KEY="..."
+export GEMINI_API_KEY="..."
 export GITHUB_TOKEN="..."
 export GITHUB_REPO_OWNER="..."
 export GITHUB_REPO_NAME="..."
@@ -174,21 +176,30 @@ export GITHUB_REPO_NAME="..."
 - Verify all secrets are set correctly
 - Ensure bot has access to Slack channels
 
-### Claude API errors
+### Gemini API errors
 - Verify API key is valid
-- Check rate limits and quota
-- Review prompt size (very long threads may exceed context limits)
+- Check quota limits
+- Review prompt size (very long threads may exceed limits)
 
 ### GitHub PR creation fails
 - Verify token has `repo` scope
 - Ensure the knowledge base repository exists
 - Check bot has write access to the repository
 
+## Switching AI Providers
+
+The project supports both Gemini and Claude. By default, it uses Gemini.
+
+To switch providers, see [SWITCHING_AI.md](SWITCHING_AI.md) for detailed instructions.
+
+**Quick switch**: Set the `AI_PROVIDER` repository variable to `gemini` or `claude` in GitHub Settings.
+
 ## Cost
 
-Cost breakdown:
+Cost depends on your chosen AI provider:
 - GitHub Actions: 2,000 free minutes/month (each run ~1-2 minutes)
-- Claude API: Pay-as-you-go, typically $0.01-0.05 per summary depending on thread length
+- Gemini: Free tier includes 60 requests/minute
+- Claude: Pay-as-you-go (~$0.01-0.05 per summary)
 - No server hosting costs
 
 ## License

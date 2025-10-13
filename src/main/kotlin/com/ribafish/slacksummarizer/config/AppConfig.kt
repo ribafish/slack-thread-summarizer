@@ -4,6 +4,7 @@ import com.typesafe.config.ConfigFactory
 import java.io.File
 
 data class AppConfig(
+    val ai: AIConfig,
     val slack: SlackConfig,
     val claude: ClaudeConfig,
     val gemini: GeminiConfig,
@@ -22,6 +23,9 @@ data class AppConfig(
                 .withFallback(ConfigFactory.load())
 
             return AppConfig(
+                ai = AIConfig(
+                    provider = config.getString("ai.provider")
+                ),
                 slack = SlackConfig(
                     botToken = config.getString("slack.botToken")
                 ),
@@ -43,6 +47,10 @@ data class AppConfig(
         }
     }
 }
+
+data class AIConfig(
+    val provider: String
+)
 
 data class SlackConfig(
     val botToken: String

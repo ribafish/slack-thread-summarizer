@@ -28,7 +28,6 @@ fun main(args: Array<String>) = runBlocking {
         val config = AppConfig.load()
 
         val slackService = SlackService(config.slack)
-        val claudeService = ClaudeService(config.claude)
         val githubService = GitHubService(config.github)
 
         // Fetch thread
@@ -42,9 +41,26 @@ fun main(args: Array<String>) = runBlocking {
 
         logger.info { "Fetched ${thread.messages.size} messages" }
 
-        // Summarize
-        logger.info { "Generating summary with Claude..." }
-        val summary = claudeService.summarize(thread)
+        // Summarize using configured provider
+        val summary = when (config.ai.provider.lowercase()) {
+            "claude" -> {
+                logger.info { "Generating summary with Claude..." }
+                val claudeService = ClaudeService(config.claude)
+                val result = claudeService.summarize(thread)
+                claudeService.close()
+                result
+            }
+            "gemini" -> {
+                logger.info { "Generating summary with Gemini..." }
+                val geminiService = GeminiService(config.gemini)
+                geminiService.summarize(thread)
+            }
+            else -> {
+                logger.error { "Unknown AI provider: ${config.ai.provider}. Use 'gemini' or 'claude'" }
+                exitProcess(1)
+            }
+        }
+
         logger.info { "Summary generated: ${summary.length} characters" }
 
         // Create PR
@@ -57,8 +73,6 @@ fun main(args: Array<String>) = runBlocking {
 
         logger.info { "✓ Pull request created: $prUrl" }
         println("PR_URL=$prUrl")
-
-        claudeService.close()
 
     } catch (e: Exception) {
         logger.error(e) { "Failed to process thread: ${e.message}" }
