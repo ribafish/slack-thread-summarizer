@@ -2,21 +2,25 @@
 
 Serverless solution that summarizes Slack threads when marked with a 📌 (pushpin) reaction, creating a pull request with the summary to a knowledge base repository via GitHub Actions.
 
+Available in both **Kotlin** and **Python** implementations.
+
 ## Features
 
 - No always-on server required (serverless via GitHub Actions)
 - Triggered by Slack Workflow Builder on pushpin reactions
 - Fetches entire thread context
-- Summarizes conversation using Gemini AI
+- Summarizes conversation using Gemini or Claude AI
 - Creates formatted markdown documents
 - Automatically opens PRs to your knowledge base repo
+- Smart article merging (extends existing articles on same topic)
+- Keyword extraction and management
 
 ## Architecture
 
 1. User adds 📌 reaction to Slack message
 2. Slack Workflow Builder detects reaction
 3. Workflow triggers GitHub Actions via API
-4. GitHub Actions runs Kotlin processor
+4. GitHub Actions runs processor (Kotlin or Python)
 5. Processor creates PR with summary
 
 ## Prerequisites
@@ -105,7 +109,9 @@ For **private channels**, manually invite the bot:
 
 **Configure Webhook:**
 - Method: `POST`
-- URL: `https://api.github.com/repos/{owner}/{repo}/actions/workflows/summarize-thread.yml/dispatches`
+- URL: Choose based on your preferred implementation:
+  - **Kotlin**: `https://api.github.com/repos/{owner}/{repo}/actions/workflows/summarize-thread.yml/dispatches`
+  - **Python**: `https://api.github.com/repos/{owner}/{repo}/actions/workflows/summarize-thread-python.yml/dispatches`
   - Replace `{owner}` with your GitHub username
   - Replace `{repo}` with `slack-thread-summarizer`
 - Headers:
@@ -156,10 +162,13 @@ Slack Workflow Builder provides these automatically:
 
 ## Project Structure
 
+This repository contains two implementations:
+
+### Kotlin Implementation (Root)
 ```
 slack-thread-summarizer/
 ├── .github/workflows/
-│   └── summarize-thread.yml     # GitHub Actions workflow
+│   └── summarize-thread.yml     # GitHub Actions workflow (Kotlin)
 ├── src/main/kotlin/com/ribafish/slacksummarizer/
 │   ├── Main.kt                  # CLI entry point
 │   ├── config/
@@ -171,28 +180,64 @@ slack-thread-summarizer/
 │       ├── GeminiService.kt     # AI summarization (Gemini)
 │       ├── ClaudeService.kt     # AI summarization (Claude)
 │       └── GitHubService.kt     # GitHub PR creation
-└── src/main/resources/
-    ├── application.conf.example # Configuration template
-    └── logback.xml              # Logging configuration
+├── build.gradle.kts             # Gradle build configuration
+└── gradlew                      # Gradle wrapper
 ```
+
+### Python Implementation (summarizer/)
+```
+summarizer/
+├── __init__.py
+├── main.py                      # Entry point
+├── config.py                    # Configuration management
+├── models.py                    # Data models
+├── services/
+│   ├── slack_service.py         # Slack API
+│   ├── gemini_service.py        # Gemini AI
+│   ├── claude_service.py        # Claude AI
+│   └── github_service.py        # GitHub API
+├── requirements.txt             # Python dependencies
+└── README.md                    # Python-specific docs
+```
+
+Both implementations have identical features and functionality.
 
 ## Local Testing
 
-You can test the processor locally:
-
+### Kotlin Version
 ```bash
 # Set environment variables
 export SLACK_BOT_TOKEN="xoxb-..."
 export GEMINI_API_KEY="..."
+export ANTHROPIC_API_KEY="..."
 export GITHUB_TOKEN="..."
 export KB_REPO_OWNER="..."
 export KB_REPO_NAME="..."
+export AI_PROVIDER="gemini"  # or "claude"
 
 # Build
 ./gradlew build
 
 # Run with channel ID and message timestamp
 ./gradlew run --args="C01234ABCD 1234567890.123456"
+```
+
+### Python Version
+```bash
+# Set environment variables
+export SLACK_BOT_TOKEN="xoxb-..."
+export GEMINI_API_KEY="..."
+export ANTHROPIC_API_KEY="..."
+export GITHUB_TOKEN="..."
+export KB_REPO_OWNER="..."
+export KB_REPO_NAME="..."
+export AI_PROVIDER="gemini"  # or "claude"
+
+# Install dependencies
+pip install -r summarizer/requirements.txt
+
+# Run with channel ID and message timestamp
+python -m summarizer.main C01234ABCD 1234567890.123456
 ```
 
 ## Troubleshooting
