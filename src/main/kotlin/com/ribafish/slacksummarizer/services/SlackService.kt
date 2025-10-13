@@ -17,6 +17,20 @@ class SlackService(private val config: SlackConfig) {
     suspend fun fetchThread(channelId: String, threadTs: String): SlackThread {
         logger.debug { "Fetching thread $threadTs from channel $channelId" }
 
+        // Try to join the channel if it's public (will fail silently for private channels)
+        try {
+            val joinResponse = client.conversationsJoin { req ->
+                req.channel(channelId)
+            }
+            if (joinResponse.isOk) {
+                logger.debug { "Joined channel $channelId" }
+            } else if (joinResponse.error != "already_in_channel") {
+                logger.debug { "Could not join channel $channelId: ${joinResponse.error}" }
+            }
+        } catch (e: Exception) {
+            logger.debug(e) { "Exception joining channel $channelId: ${e.message}" }
+        }
+
         // Get channel info
         val channelInfo = client.conversationsInfo { req ->
             req.channel(channelId)

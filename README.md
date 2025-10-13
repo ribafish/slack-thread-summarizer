@@ -58,10 +58,11 @@ Add these **Repository Variables**:
 **Configure OAuth Scopes:**
 Navigate to "OAuth & Permissions" and add these Bot Token Scopes:
 - `channels:history`
+- `channels:join` - allows bot to auto-join public channels
+- `channels:read`
 - `groups:history`
 - `im:history`
 - `mpim:history`
-- `channels:read`
 - `users:read`
 
 **Install App:**
@@ -82,12 +83,13 @@ Create a repository where summaries will be stored (or use an existing one):
 2. Generate new token with `repo` scope (full repository access)
 3. Copy the token
 
-### 6. Invite Slack Bot to Channels
+### 6. Invite Slack Bot to Private Channels (Optional)
 
-Add the bot to channels where you want to use the summarizer:
-1. Go to any channel in Slack
+For **public channels**, the bot will auto-join when needed (with `channels:join` scope).
+
+For **private channels**, manually invite the bot:
+1. Go to the private channel in Slack
 2. Type `/invite @Thread Summarizer` (or your bot name)
-3. The bot needs to be in the channel to read message history
 
 ### 7. Set Up Slack Workflow
 
