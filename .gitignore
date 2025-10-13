@@ -12,3 +12,6 @@ application-local.conf
 # Temporary files
 *.tmp
 *.bak
+
+# Claude files
+.claude/
