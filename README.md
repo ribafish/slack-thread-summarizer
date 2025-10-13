@@ -44,8 +44,8 @@ Add these **Repository Secrets**:
 
 Add these **Repository Variables**:
 - `AI_PROVIDER` - which AI to use: `gemini` (default) or `claude`
-- `GITHUB_REPO_OWNER` - owner of knowledge base repo (e.g., "yourusername")
-- `GITHUB_REPO_NAME` - name of knowledge base repo (e.g., "knowledge-base")
+- `KB_REPO_OWNER` - owner of knowledge base repo (e.g., "yourusername")
+- `KB_REPO_NAME` - name of knowledge base repo (e.g., "knowledge-base")
 
 ### 3. Slack App Configuration
 
@@ -181,8 +181,8 @@ You can test the processor locally:
 export SLACK_BOT_TOKEN="xoxb-..."
 export GEMINI_API_KEY="..."
 export GITHUB_TOKEN="..."
-export GITHUB_REPO_OWNER="..."
-export GITHUB_REPO_NAME="..."
+export KB_REPO_OWNER="..."
+export KB_REPO_NAME="..."
 
 # Build
 ./gradlew build

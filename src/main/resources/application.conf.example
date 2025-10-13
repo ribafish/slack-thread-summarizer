@@ -19,7 +19,7 @@ gemini {
 
 github {
     token = ${?GITHUB_TOKEN}
-    repoOwner = ${?GITHUB_REPO_OWNER}
-    repoName = ${?GITHUB_REPO_NAME}
+    repoOwner = ${?KB_REPO_OWNER}
+    repoName = ${?KB_REPO_NAME}
     branchPrefix = "summary-"
 }
