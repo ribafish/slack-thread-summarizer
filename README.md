@@ -69,13 +69,27 @@ Navigate to "OAuth & Permissions" and add these Bot Token Scopes:
 - Authorize the app
 - Copy the "Bot User OAuth Token" (starts with `xoxb-`)
 
-### 4. Create GitHub Personal Access Token
+### 4. Create Knowledge Base Repository
+
+Create a repository where summaries will be stored (or use an existing one):
+1. Create a new GitHub repository (e.g., "knowledge-base")
+2. Optionally, create a `summaries/` directory in it
+3. Ensure the GitHub token (next step) has write access to this repo
+
+### 5. Create GitHub Personal Access Token
 
 1. Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
-2. Generate new token with `repo` scope
+2. Generate new token with `repo` scope (full repository access)
 3. Copy the token
 
-### 5. Set Up Slack Workflow
+### 6. Invite Slack Bot to Channels
+
+Add the bot to channels where you want to use the summarizer:
+1. Go to any channel in Slack
+2. Type `/invite @Thread Summarizer` (or your bot name)
+3. The bot needs to be in the channel to read message history
+
+### 7. Set Up Slack Workflow
 
 **Create Workflow:**
 1. In Slack, go to Tools → Workflow Builder
@@ -113,6 +127,18 @@ Slack Workflow Builder provides these automatically:
 - `{{user_id}}` - user who added the reaction
 
 6. Publish the workflow
+
+### 8. Get AI API Key
+
+**For Gemini (default):**
+1. Go to https://makersuite.google.com/app/apikey
+2. Create a new API key
+3. Add it as `GEMINI_API_KEY` secret in GitHub
+
+**For Claude:**
+1. Go to https://console.anthropic.com/
+2. Create an API key
+3. Add it as `ANTHROPIC_API_KEY` secret in GitHub
 
 ## Usage
 
