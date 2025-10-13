@@ -13,10 +13,12 @@ repositories {
 
 dependencies {
     // Slack SDK
-    implementation("com.slack.api:slack-api-client:1.36.2")
+    implementation("com.slack.api:slack-api-client:1.45.3")
+    implementation("com.slack.api:slack-api-model-kotlin-extension:1.45.3")
+    implementation("com.slack.api:slack-api-client-kotlin-extension:1.45.3")
 
     // Claude API (Anthropic)
-    implementation("com.anthropic:anthropic-sdk-kotlin:0.1.0-alpha.1")
+    implementation("com.anthropic:anthropic-java:2.8.1")
 
     // HTTP client for Claude
     implementation("io.ktor:ktor-client-core:2.3.7")
@@ -25,7 +27,7 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
 
     // Gemini API (kept for reference, not used)
-    implementation("com.google.ai.client.generativeai:generativeai:0.1.2")
+    implementation("com.google.genai:google-genai:1.22.0")
 
     // GitHub API
     implementation("org.kohsuke:github-api:1.319")

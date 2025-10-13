@@ -1,6 +1,7 @@
 package com.ribafish.slacksummarizer.services
 
-import com.google.ai.client.generativeai.GenerativeModel
+import com.google.genai.Client
+import com.google.genai.types.GenerateContentConfig
 import com.ribafish.slacksummarizer.config.GeminiConfig
 import com.ribafish.slacksummarizer.models.SlackThread
 import mu.KotlinLogging
@@ -8,10 +9,9 @@ import mu.KotlinLogging
 private val logger = KotlinLogging.logger {}
 
 class GeminiService(private val config: GeminiConfig) {
-    private val model = GenerativeModel(
-        modelName = config.model,
-        apiKey = config.apiKey
-    )
+    private val client = Client.builder()
+        .apiKey(config.apiKey)
+        .build()
 
     suspend fun summarize(thread: SlackThread): String {
         logger.debug { "Generating summary for thread with ${thread.messages.size} messages" }
@@ -21,8 +21,10 @@ class GeminiService(private val config: GeminiConfig) {
 
         logger.debug { "Prompt: $prompt" }
 
-        val response = model.generateContent(prompt)
-        val summary = response.text ?: "Failed to generate summary"
+        val generateConfig = GenerateContentConfig.builder().build()
+
+        val response = client.models.generateContent(config.model, prompt, generateConfig)
+        val summary = response.text() ?: "Failed to generate summary"
 
         logger.debug { "Generated summary: $summary" }
 

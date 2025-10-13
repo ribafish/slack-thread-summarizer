@@ -33,7 +33,7 @@ class SlackService(private val config: SlackConfig) {
 
         // Get workspace/team info
         val teamInfo = try {
-            client.teamInfo()
+            client.teamInfo { req -> req }
         } catch (e: Exception) {
             logger.debug(e) { "Could not get team info" }
             null
