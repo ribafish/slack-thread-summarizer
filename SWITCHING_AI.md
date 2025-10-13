@@ -22,21 +22,11 @@ Also ensure you have the corresponding API key secret:
 - For Gemini: `GEMINI_API_KEY`
 - For Claude: `ANTHROPIC_API_KEY`
 
-### Option 2: Configuration File (For Local Testing)
-
-Edit `application.conf` (or create it from `application.conf.example`):
-
-```hocon
-ai {
-    provider = "gemini"  # Change to "claude" to use Claude
-}
-```
-
-### Option 3: Command Line Environment Variable
+### Option 2: Command Line Environment Variable
 
 ```bash
 export AI_PROVIDER="claude"  # or "gemini"
-./gradlew run --args="CHANNEL_ID MESSAGE_TS"
+python -m summarizer.main <channel_id> <message_ts>
 ```
 
 ## Provider Comparison
@@ -55,25 +45,21 @@ export AI_PROVIDER="claude"  # or "gemini"
 
 ## Changing the Model Version
 
-You can also customize which model version to use:
+You can also customize which model version to use by setting the following environment variables:
+- `GEMINI_MODEL`
+- `CLAUDE_MODEL`
 
-In `application.conf`:
-
-```hocon
-claude {
-    model = "claude-3-5-sonnet-20241022"  # or another Claude model
-}
-
-gemini {
-    model = "gemini-1.5-flash"  # or "gemini-1.5-pro", etc.
-}
+For example:
+```bash
+export GEMINI_MODEL="gemini-1.5-pro"
+export CLAUDE_MODEL="claude-3-opus-20240229"
 ```
 
 ## Troubleshooting
 
 ### "Unknown AI provider" error
 - Check that `AI_PROVIDER` is set to exactly `gemini` or `claude` (case-insensitive)
-- Verify the environment variable or config file is being loaded
+- Verify the environment variable is being loaded
 
 ### Missing API key
 - Ensure the corresponding secret is set in GitHub Actions
