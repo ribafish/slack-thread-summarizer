@@ -31,35 +31,48 @@ class GeminiService(private val config: GeminiConfig) {
 
     private fun buildThreadContent(thread: SlackThread): String {
         return thread.messages.joinToString("\n\n") { message ->
-            "**${message.username}** (${message.timestamp}):\n${message.text}"
+            message.text
         }
     }
 
     private fun buildPrompt(threadContent: String): String {
         return """
-            You are a technical documentation assistant. Your task is to summarize a Slack conversation thread
-            into a clear, well-structured markdown document suitable for a knowledge base.
+            You are a technical documentation assistant. Your task is to transform a Slack conversation
+            into a clear, well-structured knowledge base article in markdown format.
 
             Requirements:
-            1. Create a clear, descriptive title based on the main topic
-            2. Write a concise summary paragraph
-            3. Organize key points into logical sections
-            4. Include important decisions, action items, and conclusions
-            5. Preserve technical details and code snippets if present
-            6. Use proper markdown formatting (headers, lists, code blocks, etc.)
-            7. Keep the tone professional and clear
+            1. Create a clear, descriptive title based on the main topic discussed
+            2. Focus entirely on the technical content, concepts, and information shared
+            3. Organize information into logical sections with proper headers
+            4. Extract and preserve:
+               - Technical explanations and concepts
+               - Code snippets and examples
+               - Solutions to problems
+               - Best practices and recommendations
+               - Important links and references
+            5. Remove conversational elements (greetings, acknowledgments, "thanks", etc.)
+            6. Synthesize multiple related points into cohesive explanations
+            7. Use proper markdown formatting (headers, lists, code blocks, etc.)
+            8. Keep the tone professional and encyclopedic
+
+            Do NOT include:
+            - Who said what or when
+            - Conversational back-and-forth
+            - Off-topic discussion
+            - Personal opinions unless they represent technical best practices
 
             Format the output as a complete markdown document with:
-            - A title (# heading)
-            - A summary section
-            - Relevant subsections organizing the content
-            - Any important links or references mentioned
+            - A descriptive title (# heading)
+            - An overview section explaining what this article covers
+            - Logical subsections organizing the technical content
+            - Code blocks for any code examples
+            - Links to external resources if mentioned
 
-            Here is the Slack thread to summarize:
+            Here is the conversation to transform into a knowledge base article:
 
             $threadContent
 
-            Generate the markdown summary:
+            Generate the knowledge base article:
         """.trimIndent()
     }
 }

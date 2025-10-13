@@ -63,7 +63,6 @@ Navigate to "OAuth & Permissions" and add these Bot Token Scopes:
 - `groups:history`
 - `im:history`
 - `mpim:history`
-- `users:read`
 
 **Install App:**
 - Click "Install to Workspace"

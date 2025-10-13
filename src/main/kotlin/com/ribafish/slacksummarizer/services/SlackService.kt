@@ -57,12 +57,9 @@ class SlackService(private val config: SlackConfig) {
         }
 
         val messages = repliesResponse.messages.map { message ->
-            val userId = message.user ?: "unknown"
-            val username = getUserName(userId)
-
             SlackMessage(
-                user = userId,
-                username = username,
+                user = message.user ?: "unknown",
+                username = "", // Not needed for knowledge base
                 text = message.text ?: "",
                 timestamp = message.ts
             )
@@ -76,23 +73,5 @@ class SlackService(private val config: SlackConfig) {
             threadTs = threadTs,
             messages = messages
         )
-    }
-
-    private fun getUserName(userId: String): String {
-        return try {
-            val userInfo = client.usersInfo { req ->
-                req.user(userId)
-            }
-
-            if (userInfo.isOk) {
-                userInfo.user.realName ?: userInfo.user.name ?: userId
-            } else {
-                logger.warn { "Failed to get user info for $userId: ${userInfo.error}" }
-                userId
-            }
-        } catch (e: Exception) {
-            logger.warn(e) { "Error fetching user info for $userId" }
-            userId
-        }
     }
 }
