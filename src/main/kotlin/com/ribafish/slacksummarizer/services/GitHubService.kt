@@ -31,6 +31,12 @@ class GitHubService(private val config: GitHubConfig) {
         val title = extractTitle(summary)
         val sanitizedTitle = sanitizeForFilename(title)
 
+        // Search for existing file with similar topic
+        val existingFilePath = searchExistingArticle(repo, sanitizedTitle, defaultBranch)
+
+        val isUpdate = existingFilePath != null
+        val filePath = existingFilePath ?: "summaries/${sanitizedTitle}.md"
+
         // Create a unique branch name
         val branchName = "${config.branchPrefix}${sanitizedTitle}-${timestamp.replace(".", "-")}"
         logger.debug { "Branch name: $branchName" }
@@ -48,50 +54,66 @@ class GitHubService(private val config: GitHubConfig) {
             throw e
         }
 
-        // Generate filename from title
-        val filename = "${sanitizedTitle}.md"
-        val filePath = "summaries/$filename"
-
         // Build Slack link
         val slackLink = buildSlackLink(workspaceId, channelId, timestamp)
 
-        // Add metadata footer to summary
-        val summaryWithMetadata = """
-            $summary
+        // Prepare content based on whether we're updating or creating
+        val finalContent = if (isUpdate) {
+            logger.info { "Found existing article at $filePath, will extend it" }
+            val existingContent = try {
+                repo.getFileContent(filePath, defaultBranch).read().readBytes().decodeToString()
+            } catch (e: Exception) {
+                logger.warn(e) { "Could not read existing file, will create new" }
+                ""
+            }
 
-            ---
+            if (existingContent.isNotEmpty()) {
+                mergeArticles(existingContent, summary, slackLink)
+            } else {
+                """
+                    $summary
 
-            **Source:** [Slack Thread]($slackLink)
-        """.trimIndent()
+                    ---
 
-        // Check if file already exists
+                    **Sources:**
+                    - [Slack Thread]($slackLink)
+                """.trimIndent()
+            }
+        } else {
+            """
+                $summary
+
+                ---
+
+                **Source:** [Slack Thread]($slackLink)
+            """.trimIndent()
+        }
+
+        // Create or update file
         try {
             val existingFile = repo.getFileContent(filePath, branchName)
-            logger.warn { "File $filePath already exists, will update it" }
-
-            // Update existing file
-            existingFile.update(summaryWithMetadata, "Update summary: $title", branchName)
+            logger.debug { "File exists in new branch, updating" }
+            existingFile.update(finalContent, if (isUpdate) "Update KB article: $title" else "Add KB article: $title", branchName)
         } catch (e: GHFileNotFoundException) {
-            // File doesn't exist, create it
+            logger.debug { "Creating new file in branch" }
             repo.createContent()
-                .content(summaryWithMetadata)
+                .content(finalContent)
                 .path(filePath)
                 .branch(branchName)
-                .message("Add summary: $title")
+                .message(if (isUpdate) "Update KB article: $title" else "Add KB article: $title")
                 .commit()
-
-            logger.debug { "Created file $filePath in branch $branchName" }
         }
 
         // Create pull request
-        val prTitle = "Add KB article: $title"
+        val prTitle = if (isUpdate) "Update KB article: $title" else "Add KB article: $title"
         val body = """
-            ## Knowledge Base Article from Slack
+            ## ${if (isUpdate) "Updated" else "New"} Knowledge Base Article from Slack
 
             **Source:** [Slack Thread]($slackLink)
             **Channel:** #$channelName
+            ${if (isUpdate) "**Action:** Extended existing article with new information" else "**Action:** Created new article"}
 
-            This PR adds a knowledge base article generated from a Slack thread that was marked with a :pushpin: reaction.
+            This PR ${if (isUpdate) "updates an existing" else "adds a new"} knowledge base article generated from a Slack thread that was marked with a :pushpin: reaction.
 
             ### File
             - `$filePath`
@@ -107,6 +129,97 @@ class GitHubService(private val config: GitHubConfig) {
         logger.info { "Pull request created: ${pr.htmlUrl}" }
 
         return pr.htmlUrl.toString()
+    }
+
+    private fun searchExistingArticle(repo: org.kohsuke.github.GHRepository, sanitizedTitle: String, branch: String): String? {
+        return try {
+            // Search for files in summaries directory
+            val contents = repo.getDirectoryContent("summaries", branch)
+
+            // Look for exact match or similar filename
+            val exactMatch = contents.find { it.name == "$sanitizedTitle.md" }
+            if (exactMatch != null) {
+                logger.debug { "Found exact match: ${exactMatch.path}" }
+                return exactMatch.path
+            }
+
+            // Look for similar titles (fuzzy match)
+            val similarMatch = contents.find { content ->
+                val existingTitle = content.name.removeSuffix(".md")
+                // Check if titles are similar (contain common words or one is substring of another)
+                val titleWords = sanitizedTitle.split("-").filter { it.length > 3 }
+                val existingWords = existingTitle.split("-").filter { it.length > 3 }
+
+                // If they share 50%+ of significant words, consider it a match
+                val commonWords = titleWords.intersect(existingWords.toSet())
+                commonWords.size >= (titleWords.size.coerceAtMost(existingWords.size) / 2)
+            }
+
+            if (similarMatch != null) {
+                logger.debug { "Found similar match: ${similarMatch.path}" }
+                return similarMatch.path
+            }
+
+            null
+        } catch (e: Exception) {
+            logger.debug(e) { "Could not search for existing articles: ${e.message}" }
+            null
+        }
+    }
+
+    private fun mergeArticles(existingContent: String, newSummary: String, newSlackLink: String): String {
+        // Extract existing sources section
+        val sourcesRegex = Regex("""---\s*\*\*Source[s]?:\*\*(.+)$""", RegexOption.DOT_MATCHES_ALL)
+        val existingSources = sourcesRegex.find(existingContent)?.groupValues?.get(1)?.trim() ?: ""
+
+        // Remove sources section from existing content
+        val contentWithoutSources = existingContent.replace(sourcesRegex, "").trim()
+
+        // Extract main content from new summary (without its title, as we keep existing structure)
+        val newSummaryLines = newSummary.lines()
+        val newContentStart = newSummaryLines.indexOfFirst { !it.startsWith("#") && it.isNotBlank() }
+        val newContent = if (newContentStart >= 0) {
+            newSummaryLines.drop(newContentStart).joinToString("\n")
+        } else {
+            newSummary
+        }
+
+        // Build new sources list
+        val sourcesList = mutableListOf<String>()
+
+        // Parse existing sources
+        if (existingSources.isNotEmpty()) {
+            if (existingSources.startsWith("- [Slack Thread]")) {
+                sourcesList.add(existingSources.removePrefix("- "))
+            } else if (existingSources.contains("\n- [Slack Thread]")) {
+                existingSources.lines()
+                    .filter { it.trim().startsWith("- [Slack Thread]") }
+                    .forEach { sourcesList.add(it.trim().removePrefix("- ")) }
+            } else {
+                sourcesList.add("[Slack Thread]($existingSources)")
+            }
+        }
+
+        // Add new source
+        sourcesList.add("[Slack Thread]($newSlackLink)")
+
+        val sourcesSection = if (sourcesList.size == 1) {
+            "**Source:** ${sourcesList[0]}"
+        } else {
+            "**Sources:**\n" + sourcesList.joinToString("\n") { "- $it" }
+        }
+
+        return """
+            $contentWithoutSources
+
+            ## Additional Context
+
+            $newContent
+
+            ---
+
+            $sourcesSection
+        """.trimIndent()
     }
 
     private fun buildSlackLink(workspaceId: String?, channelId: String, timestamp: String): String {
