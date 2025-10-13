@@ -78,8 +78,13 @@ Create a repository where summaries will be stored (or use an existing one):
 
 ### 5. Create GitHub Personal Access Token
 
-1. Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
-2. Generate new token with `repo` scope (full repository access)
+1. Go to GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens
+2. Generate new token with the following settings:
+   - **Repository access**: Select "Only select repositories" and choose your knowledge base repo
+   - **Repository permissions**:
+     - Contents: Read and write
+     - Pull requests: Read and write
+     - Metadata: Read-only (automatically included)
 3. Copy the token
 
 ### 6. Invite Slack Bot to Private Channels (Optional)
@@ -195,7 +200,7 @@ export KB_REPO_NAME="..."
 ### Workflow not triggering
 - Verify Workflow is published in Slack
 - Check webhook URL is correct
-- Ensure GitHub token has `repo` scope
+- Ensure GitHub token has Contents and Pull requests permissions
 - Review Workflow execution history in Slack
 
 ### GitHub Actions failing
@@ -209,9 +214,9 @@ export KB_REPO_NAME="..."
 - Review prompt size (very long threads may exceed limits)
 
 ### GitHub PR creation fails
-- Verify token has `repo` scope
+- Verify token has Contents and Pull requests permissions
 - Ensure the knowledge base repository exists
-- Check bot has write access to the repository
+- Check token has access to the specific repository
 
 ## Switching AI Providers
 
