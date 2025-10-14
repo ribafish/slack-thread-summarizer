@@ -52,7 +52,7 @@ class GitHubService:
         existing_file_path = self._search_existing_article(repo, sanitized_title, default_branch)
 
         is_update = existing_file_path is not None
-        file_path = existing_file_path if existing_file_path else f"summaries/{sanitized_title}.md"
+        file_path = existing_file_path if existing_file_path else f"knowledge-base/{sanitized_title}.md"
 
         # Create a unique branch name
         branch_name = f"{self.config.branch_prefix}{sanitized_title}-{timestamp.replace('.', '-')}"
@@ -145,7 +145,7 @@ This PR {'updates an existing' if is_update else 'adds a new'} knowledge base ar
     def _search_existing_article(self, repo, sanitized_title: str, branch: str) -> Optional[str]:
         """Search for existing article with same/similar topic."""
         try:
-            contents = repo.get_contents("summaries", ref=branch)
+            contents = repo.get_contents("knowledge-base", ref=branch)
 
             # Look for exact match
             for content in contents:
