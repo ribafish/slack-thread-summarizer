@@ -15,6 +15,7 @@ class AIConfig:
 class SlackConfig:
     """Slack API configuration."""
     bot_token: str
+    workspace_name: str
 
 
 @dataclass
@@ -57,7 +58,8 @@ class AppConfig:
         return cls(
             ai=AIConfig(provider=ai_provider),
             slack=SlackConfig(
-                bot_token=os.getenv("SLACK_BOT_TOKEN", "")
+                bot_token=os.getenv("SLACK_BOT_TOKEN", ""),
+                workspace_name=os.getenv("SLACK_WORKSPACE_NAME", "")
             ),
             claude=ClaudeConfig(
                 api_key=os.getenv("ANTHROPIC_API_KEY", ""),

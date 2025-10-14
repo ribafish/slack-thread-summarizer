@@ -48,6 +48,7 @@ Add these **Repository Variables**:
 - `AI_PROVIDER` - which AI to use: `gemini` (default) or `claude`
 - `KB_REPO_OWNER` - owner of knowledge base repo (e.g., "yourusername")
 - `KB_REPO_NAME` - name of knowledge base repo (e.g., "knowledge-base")
+- `SLACK_WORKSPACE_NAME` - your Slack workspace name (e.g., "your-workspace")
 
 ### 3. Slack App Configuration
 
@@ -178,6 +179,7 @@ summarizer-python/
 ```bash
 # Set environment variables
 export SLACK_BOT_TOKEN="xoxb-..."
+export SLACK_WORKSPACE_NAME="your-workspace-name"
 export GEMINI_API_KEY="..."
 export ANTHROPIC_API_KEY="..."
 export GITHUB_TOKEN="..."

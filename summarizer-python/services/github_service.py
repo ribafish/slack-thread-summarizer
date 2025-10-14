@@ -25,7 +25,8 @@ class GitHubService:
         channel_id: str,
         channel_name: str,
         timestamp: str,
-        workspace_id: Optional[str]
+        workspace_id: Optional[str],
+        workspace_name: str
     ) -> str:
         """Create a pull request with the summary.
 
@@ -71,7 +72,7 @@ class GitHubService:
             raise
 
         # Build Slack link
-        slack_link = self._build_slack_link(workspace_id, channel_id, timestamp)
+        slack_link = self._build_slack_link(workspace_id, channel_id, timestamp, workspace_name)
 
         # Prepare content based on whether we're updating or creating
         if is_update:
@@ -251,9 +252,11 @@ This PR {'updates an existing' if is_update else 'adds a new'} knowledge base ar
 
 {sources_section}"""
 
-    def _build_slack_link(self, workspace_id: Optional[str], channel_id: str, timestamp: str) -> str:
+    def _build_slack_link(self, workspace_id: Optional[str], channel_id: str, timestamp: str, workspace_name: str) -> str:
         """Build Slack deep link."""
         message_id = timestamp.replace(".", "")
+        if workspace_name:
+            return f"https://{workspace_name}.slack.com/archives/{channel_id}/p{message_id}"
         if workspace_id:
             return f"https://slack.com/app_redirect?team={workspace_id}&channel={channel_id}&message_ts={timestamp}"
         else:

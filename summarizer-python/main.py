@@ -69,7 +69,8 @@ def main():
             channel_id=channel_id,
             channel_name=thread.channel_name,
             timestamp=message_ts,
-            workspace_id=thread.workspace_id
+            workspace_id=thread.workspace_id,
+            workspace_name=config.slack.workspace_name
         )
 
         logger.info(f"✓ Pull request created: {pr_url}")
