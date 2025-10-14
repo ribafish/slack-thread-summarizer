@@ -33,7 +33,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r summarizer/requirements.txt
+          pip install -r summarizer-python/requirements.txt
 
       - name: Run summarizer
         env:
@@ -45,4 +45,4 @@ jobs:
           KB_REPO_OWNER: ${{ vars.KB_REPO_OWNER }}
           KB_REPO_NAME: ${{ vars.KB_REPO_NAME }}
         run: |
-          python -m summarizer.main "${{ inputs.channel_id }}" "${{ inputs.message_ts }}"
+          python -m summarizer-python.main "${{ inputs.channel_id }}" "${{ inputs.message_ts }}"
