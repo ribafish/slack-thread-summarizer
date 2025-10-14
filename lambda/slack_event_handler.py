@@ -183,15 +183,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             channel_id = payload.get("channel", {}).get("id")
             message_ts = message.get("ts")
             response_url = payload.get("response_url")
-            team_id = payload.get("team", {}).get("id")
+            team_domain = payload.get("team", {}).get("domain")
 
             if channel_id and message_ts:
                 print(f"Triggering workflow for channel={channel_id}, ts={message_ts}")
 
                 # Build Slack message permalink
                 # Format: https://workspace.slack.com/archives/CHANNEL_ID/pMESSAGE_TS
-                message_ts_formatted = message_ts.replace(".", "")
-                message_link = f"https://slack.com/app_redirect?team={team_id}&channel={channel_id}&message_ts={message_ts}" if team_id else None
+                # Message timestamp needs to have the period removed (e.g., 1234567890.123456 -> p1234567890123456)
+                message_ts_formatted = "p" + message_ts.replace(".", "")
+                message_link = f"https://{team_domain}.slack.com/archives/{channel_id}/{message_ts_formatted}" if team_domain else None
 
                 # Send immediate acknowledgment to user
                 if response_url:
