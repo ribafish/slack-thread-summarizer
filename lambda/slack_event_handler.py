@@ -54,6 +54,27 @@ def verify_slack_signature(event: Dict[str, Any]) -> bool:
     return is_valid
 
 
+def send_slack_response(response_url: str, message: str) -> None:
+    """Send a response message back to Slack using the response URL."""
+    payload = {
+        "text": message,
+        "response_type": "ephemeral"  # Only visible to the user who triggered it
+    }
+
+    req = Request(
+        response_url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+
+    try:
+        with urlopen(req) as response:
+            print(f"Sent response to Slack: {response.status}")
+    except URLError as e:
+        print(f"Error sending response to Slack: {e}")
+
+
 def trigger_github_workflow(channel_id: str, message_ts: str) -> Dict[str, Any]:
     """Trigger GitHub Actions workflow via API."""
     github_token = os.environ["GITHUB_TOKEN"]
@@ -157,9 +178,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             message = payload.get("message", {})
             channel_id = payload.get("channel", {}).get("id")
             message_ts = message.get("ts")
+            response_url = payload.get("response_url")
 
             if channel_id and message_ts:
                 print(f"Triggering workflow for channel={channel_id}, ts={message_ts}")
+
+                # Send immediate acknowledgment to user
+                if response_url:
+                    send_slack_response(
+                        response_url,
+                        ":hourglass_flowing_sand: Processing your request... I'll generate a summary and create a pull request. Check your GitHub Actions for progress."
+                    )
 
                 # Trigger GitHub Actions workflow
                 result = trigger_github_workflow(channel_id, message_ts)
@@ -168,6 +197,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     print(f"Successfully triggered GitHub workflow")
                 else:
                     print(f"Failed to trigger workflow: {result.get('error')}")
+                    # Send error message to user
+                    if response_url:
+                        send_slack_response(
+                            response_url,
+                            f":x: Failed to trigger workflow: {result.get('error', 'Unknown error')}"
+                        )
 
                 # Respond to Slack to acknowledge receipt
                 return {
