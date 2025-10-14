@@ -15,3 +15,6 @@ application-local.conf
 
 # Claude files
 .claude/
+
+# IntelliJ IDEA
+.idea/
