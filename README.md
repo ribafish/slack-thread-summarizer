@@ -16,14 +16,15 @@ Serverless solution that summarizes Slack threads when marked with a 📌 (pushp
 ## Architecture
 
 1. User adds 📌 reaction to Slack message
-2. Slack Workflow Builder detects reaction
-3. Workflow triggers GitHub Actions via API
-4. GitHub Actions runs a Python script
-5. Processor creates PR with summary
+2. Slack sends `reaction_added` event to AWS Lambda via Event Subscriptions
+3. Lambda function validates request and triggers GitHub Actions workflow
+4. GitHub Actions runs Python script to fetch thread and generate summary
+5. Processor creates PR with summary in knowledge base repository
 
 ## Prerequisites
 
-- Slack workspace with Workflow Builder access
+- Slack workspace with admin access to create Slack apps
+- AWS account for Lambda function deployment
 - AI API key (Google Gemini, Anthropic Claude, or AWS credentials for Bedrock)
 - GitHub personal access token
 - Knowledge base repository (can be this repo or separate)
@@ -52,7 +53,11 @@ Add these **Repository Variables**:
 - `KB_REPO_NAME` - name of knowledge base repo (e.g., "knowledge-base")
 - `SLACK_WORKSPACE_NAME` - your Slack workspace name (e.g., "your-workspace")
 
-### 3. Slack App Configuration
+### 3. Deploy AWS Lambda Function
+
+See the [Lambda Deployment Guide](#lambda-deployment) section below for detailed instructions on creating and deploying the Lambda function that will receive Slack events.
+
+### 4. Slack App Configuration
 
 **Create Slack App:**
 1. Go to https://api.slack.com/apps
@@ -68,20 +73,30 @@ Navigate to "OAuth & Permissions" and add these Bot Token Scopes:
 - `groups:history`
 - `im:history`
 - `mpim:history`
+- `reactions:read`
+
+**Configure Event Subscriptions:**
+1. Navigate to "Event Subscriptions" in your Slack app settings
+2. Enable Events
+3. Set Request URL to your Lambda Function URL (you'll get this after deploying the Lambda)
+4. Under "Subscribe to bot events", add:
+   - `reaction_added`
+5. Save Changes
 
 **Install App:**
 - Click "Install to Workspace"
 - Authorize the app
 - Copy the "Bot User OAuth Token" (starts with `xoxb-`)
+- Copy the "Signing Secret" from Basic Information → App Credentials
 
-### 4. Create Knowledge Base Repository
+### 5. Create Knowledge Base Repository
 
 Create a repository where summaries will be stored (or use an existing one):
 1. Create a new GitHub repository (e.g., "knowledge-base")
 2. Optionally, create a `summaries/` directory in it
 3. Ensure the GitHub token (next step) has write access to this repo
 
-### 5. Create GitHub Personal Access Token
+### 6. Create GitHub Personal Access Token
 
 1. Go to GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens
 2. Generate new token with the following settings:
@@ -94,52 +109,13 @@ Create a repository where summaries will be stored (or use an existing one):
 
 **Note**: The default `GITHUB_TOKEN` provided by GitHub Actions cannot be used because it doesn't have permission to create pull requests in other repositories. You must use a Personal Access Token (PAT).
 
-### 6. Invite Slack Bot to Private Channels (Optional)
+### 7. Invite Slack Bot to Private Channels (Optional)
 
 For **public channels**, the bot will auto-join when needed (with `channels:join` scope).
 
 For **private channels**, manually invite the bot:
 1. Go to the private channel in Slack
 2. Type `/invite @Thread Summarizer` (or your bot name)
-
-### 7. Set Up Slack Workflow
-
-**Create Workflow:**
-1. In Slack, go to Tools → Workflow Builder
-2. Create new workflow with trigger: "Reaction added"
-3. Configure trigger to watch for `:pushpin:` emoji
-4. Add step: "Send a webhook"
-
-**Configure Webhook:**
-- Method: `POST`
-- URL: `https://api.github.com/repos/{owner}/{repo}/actions/workflows/summarize-thread-python.yml/dispatches`
-  - Replace `{owner}` with your GitHub username
-  - Replace `{repo}` with `slack-thread-summarizer`
-- Headers:
-  ```
-  Authorization: Bearer YOUR_GITHUB_TOKEN
-  Accept: application/vnd.github+json
-  X-GitHub-Api-Version: 2022-11-28
-  ```
-- Body (JSON):
-  ```json
-  {
-    "ref": "main",
-    "inputs": {
-      "channel_id": "{{channel_id}}",
-      "message_ts": "{{message_ts}}",
-      "user_id": "{{user_id}}"
-    }
-  }
-  ```
-
-**Variables from Slack:**
-Slack Workflow Builder provides these automatically:
-- `{{channel_id}}` - the channel ID
-- `{{message_ts}}` - the message timestamp
-- `{{user_id}}` - user who added the reaction
-
-6. Publish the workflow
 
 ### 8. Get AI API Key
 
@@ -159,10 +135,119 @@ Slack Workflow Builder provides these automatically:
 3. Add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as secrets in GitHub
 4. Optionally set `AWS_REGION` variable (defaults to `us-east-1`)
 
+## Lambda Deployment
+
+### Option 1: AWS Console (Recommended for Beginners)
+
+1. **Create Lambda Function:**
+   - Go to AWS Lambda Console
+   - Click "Create function"
+   - Choose "Author from scratch"
+   - Function name: `slack-thread-summarizer-webhook`
+   - Runtime: Python 3.12
+   - Architecture: x86_64
+   - Click "Create function"
+
+2. **Upload Function Code:**
+   - Copy the code from `lambda/slack_event_handler.py`
+   - In the Lambda console, paste it into the code editor
+   - Click "Deploy"
+
+3. **Configure Environment Variables:**
+   Add the following environment variables in Configuration → Environment variables:
+   - `SLACK_SIGNING_SECRET` - from Slack App → Basic Information → App Credentials
+   - `GITHUB_TOKEN` - a Personal Access Token with `actions:write` permission for this repo
+   - `GITHUB_REPO_OWNER` - your GitHub username
+   - `GITHUB_REPO_NAME` - this repository name (e.g., `slack-thread-summarizer`)
+
+4. **Create Function URL:**
+   - Go to Configuration → Function URL
+   - Click "Create function URL"
+   - Auth type: NONE (Slack handles authentication via signature verification)
+   - Click "Save"
+   - Copy the Function URL - you'll need this for Slack Event Subscriptions
+
+5. **Configure Timeout:**
+   - Go to Configuration → General configuration
+   - Edit timeout to 10 seconds (default 3s may be too short)
+
+### Option 2: AWS CLI Deployment
+
+1. **Package the function:**
+   ```bash
+   cd lambda
+   zip function.zip slack_event_handler.py
+   ```
+
+2. **Create IAM role for Lambda:**
+   ```bash
+   aws iam create-role \
+     --role-name lambda-slack-webhook-role \
+     --assume-role-policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [{
+         "Effect": "Allow",
+         "Principal": {"Service": "lambda.amazonaws.com"},
+         "Action": "sts:AssumeRole"
+       }]
+     }'
+
+   aws iam attach-role-policy \
+     --role-name lambda-slack-webhook-role \
+     --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+   ```
+
+3. **Create the Lambda function:**
+   ```bash
+   aws lambda create-function \
+     --function-name slack-thread-summarizer-webhook \
+     --runtime python3.12 \
+     --role arn:aws:iam::YOUR_ACCOUNT_ID:role/lambda-slack-webhook-role \
+     --handler slack_event_handler.lambda_handler \
+     --zip-file fileb://function.zip \
+     --timeout 10
+   ```
+
+4. **Set environment variables:**
+   ```bash
+   aws lambda update-function-configuration \
+     --function-name slack-thread-summarizer-webhook \
+     --environment Variables="{
+       SLACK_SIGNING_SECRET=your_slack_signing_secret,
+       GITHUB_TOKEN=your_github_token,
+       GITHUB_REPO_OWNER=your_github_username,
+       GITHUB_REPO_NAME=slack-thread-summarizer
+     }"
+   ```
+
+5. **Create Function URL:**
+   ```bash
+   aws lambda create-function-url-config \
+     --function-name slack-thread-summarizer-webhook \
+     --auth-type NONE
+   ```
+
+### Testing the Lambda Function
+
+You can test the function using the AWS Lambda console:
+
+1. Go to your function → Test tab
+2. Create a new test event with this JSON (simulating Slack URL verification):
+   ```json
+   {
+     "headers": {
+       "x-slack-request-timestamp": "1234567890",
+       "x-slack-signature": "v0=test"
+     },
+     "body": "{\"type\":\"url_verification\",\"challenge\":\"test_challenge\"}"
+   }
+   ```
+3. Note: This test will fail signature verification, but you can verify the function deploys correctly
+
 ## Usage
 
 1. In any Slack channel, react to a message with 📌 (`:pushpin:`)
-2. Slack Workflow triggers GitHub Actions
+2. Slack sends event to Lambda, which triggers GitHub Actions
 3. Check the Actions tab in your GitHub repo to see progress
 4. AI (Gemini, Claude, or Bedrock) generates a summary of the thread
 5. A PR is created in your knowledge base repo with the markdown summary
@@ -170,19 +255,24 @@ Slack Workflow Builder provides these automatically:
 ## Project Structure
 
 ```
-summarizer-python/
-├── __init__.py
-├── main.py              # Entry point
-├── config.py            # Configuration management
-├── models.py            # Data models
-├── services/
+.
+├── lambda/
+│   └── slack_event_handler.py    # AWS Lambda function for Slack events
+├── summarizer-python/
 │   ├── __init__.py
-│   ├── slack_service.py      # Slack API
-│   ├── gemini_service.py     # Gemini AI
-│   ├── claude_service.py     # Claude AI
-│   ├── bedrock_service.py    # Amazon Bedrock AI
-│   └── github_service.py     # GitHub API
-└── requirements.txt     # Python dependencies
+│   ├── main.py                    # Entry point
+│   ├── config.py                  # Configuration management
+│   ├── models.py                  # Data models
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── slack_service.py      # Slack API
+│   │   ├── gemini_service.py     # Gemini AI
+│   │   ├── claude_service.py     # Claude AI
+│   │   ├── bedrock_service.py    # Amazon Bedrock AI
+│   │   └── github_service.py     # GitHub API
+│   └── requirements.txt          # Python dependencies
+└── .github/workflows/
+    └── summarize-thread-python.yml
 ```
 
 ## Local Testing
@@ -212,11 +302,22 @@ python -m summarizer-python.main C01234ABCD 1234567890.123456
 
 ## Troubleshooting
 
-### Workflow not triggering
-- Verify Workflow is published in Slack
-- Check webhook URL is correct
-- Ensure `KB_GITHUB_TOKEN` has Contents and Pull requests permissions
-- Review Workflow execution history in Slack
+### Lambda function not receiving events
+- Check CloudWatch Logs for the Lambda function
+- Verify Slack Event Subscriptions Request URL matches Lambda Function URL
+- Ensure Lambda Function URL auth type is set to NONE
+- Check Lambda environment variables are set correctly
+
+### Slack signature verification failing
+- Verify `SLACK_SIGNING_SECRET` environment variable is correct
+- Check it matches the value in Slack App → Basic Information → App Credentials → Signing Secret
+- Ensure there are no extra spaces or newlines in the secret
+
+### GitHub Actions not triggering from Lambda
+- Check Lambda CloudWatch logs for API errors
+- Verify `GITHUB_TOKEN` in Lambda has `actions:write` scope
+- Ensure `GITHUB_REPO_OWNER` and `GITHUB_REPO_NAME` are correct
+- Check GitHub Actions workflow file exists at `.github/workflows/summarize-thread-python.yml`
 
 ### GitHub Actions failing
 - Check Actions tab for error logs
