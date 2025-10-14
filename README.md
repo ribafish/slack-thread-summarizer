@@ -7,7 +7,7 @@ Serverless solution that summarizes Slack threads when marked with a 📌 (pushp
 - No always-on server required (serverless via GitHub Actions)
 - Triggered by Slack Workflow Builder on pushpin reactions
 - Fetches entire thread context
-- Summarizes conversation using Gemini or Claude AI
+- Summarizes conversation using Gemini, Claude, or Amazon Bedrock AI
 - Creates formatted markdown documents
 - Automatically opens PRs to your knowledge base repo
 - Smart article merging (extends existing articles on same topic)
@@ -24,7 +24,7 @@ Serverless solution that summarizes Slack threads when marked with a 📌 (pushp
 ## Prerequisites
 
 - Slack workspace with Workflow Builder access
-- AI API key (Google Gemini or Anthropic Claude)
+- AI API key (Google Gemini, Anthropic Claude, or AWS credentials for Bedrock)
 - GitHub personal access token
 - Knowledge base repository (can be this repo or separate)
 
@@ -42,10 +42,12 @@ Add these **Repository Secrets**:
 - `SLACK_BOT_TOKEN` - your Slack bot token (xoxb-...)
 - `GEMINI_API_KEY` - your Google Gemini API key (if using Gemini)
 - `ANTHROPIC_API_KEY` - your Anthropic API key (if using Claude)
+- `AWS_ACCESS_KEY_ID` - your AWS access key (if using Bedrock)
+- `AWS_SECRET_ACCESS_KEY` - your AWS secret key (if using Bedrock)
 - `GITHUB_TOKEN` - automatically provided by GitHub Actions (no action needed)
 
 Add these **Repository Variables**:
-- `AI_PROVIDER` - which AI to use: `gemini` (default) or `claude`
+- `AI_PROVIDER` - which AI to use: `gemini` (default), `claude`, or `bedrock`
 - `KB_REPO_OWNER` - owner of knowledge base repo (e.g., "yourusername")
 - `KB_REPO_NAME` - name of knowledge base repo (e.g., "knowledge-base")
 - `SLACK_WORKSPACE_NAME` - your Slack workspace name (e.g., "your-workspace")
@@ -149,12 +151,18 @@ Slack Workflow Builder provides these automatically:
 2. Create an API key
 3. Add it as `ANTHROPIC_API_KEY` secret in GitHub
 
+**For Amazon Bedrock:**
+1. Create AWS IAM user with `bedrock:InvokeModel` permission
+2. Request access to desired Bedrock models in AWS Console
+3. Add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as secrets in GitHub
+4. Optionally set `AWS_REGION` variable (defaults to `us-east-1`)
+
 ## Usage
 
 1. In any Slack channel, react to a message with 📌 (`:pushpin:`)
 2. Slack Workflow triggers GitHub Actions
 3. Check the Actions tab in your GitHub repo to see progress
-4. AI (Gemini or Claude) generates a summary of the thread
+4. AI (Gemini, Claude, or Bedrock) generates a summary of the thread
 5. A PR is created in your knowledge base repo with the markdown summary
 
 ## Project Structure
@@ -170,6 +178,7 @@ summarizer-python/
 │   ├── slack_service.py      # Slack API
 │   ├── gemini_service.py     # Gemini AI
 │   ├── claude_service.py     # Claude AI
+│   ├── bedrock_service.py    # Amazon Bedrock AI
 │   └── github_service.py     # GitHub API
 └── requirements.txt     # Python dependencies
 ```
@@ -185,7 +194,12 @@ export ANTHROPIC_API_KEY="..."
 export GITHUB_TOKEN="..."
 export KB_REPO_OWNER="..."
 export KB_REPO_NAME="..."
-export AI_PROVIDER="gemini"  # or "claude"
+export AI_PROVIDER="gemini"  # or "claude" or "bedrock"
+
+# For Bedrock (optional):
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
+export AWS_REGION="us-east-1"
 
 # Install dependencies
 pip install -r summarizer-python/requirements.txt
@@ -219,11 +233,11 @@ python -m summarizer-python.main C01234ABCD 1234567890.123456
 
 ## Switching AI Providers
 
-The project supports both Gemini and Claude. By default, it uses Gemini.
+The project supports Gemini, Claude, and Amazon Bedrock. By default, it uses Gemini.
 
 To switch providers, see [SWITCHING_AI.md](SWITCHING_AI.md) for detailed instructions.
 
-**Quick switch**: Set the `AI_PROVIDER` repository variable to `gemini` or `claude` in GitHub Settings.
+**Quick switch**: Set the `AI_PROVIDER` repository variable to `gemini`, `claude`, or `bedrock` in GitHub Settings.
 
 ## Cost
 
@@ -231,6 +245,7 @@ Cost depends on your chosen AI provider:
 - GitHub Actions: 2,000 free minutes/month (each run ~1-2 minutes)
 - Gemini: Free tier includes 60 requests/minute
 - Claude: Pay-as-you-go (~$0.01-0.05 per summary)
+- Bedrock: Pay-as-you-go (varies by model, similar to Claude)
 - No server hosting costs
 
 ## License
