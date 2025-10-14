@@ -160,6 +160,7 @@ For **private channels**, manually invite the bot:
 3. **Configure Environment Variables:**
    Add the following environment variables in Configuration → Environment variables:
    - `SLACK_SIGNING_SECRET` - from Slack App → Basic Information → App Credentials
+   - `SLACK_SHORTCUT_CALLBACK_ID` - the callback ID from your shortcut (default: `summarize_thread`)
    - `GITHUB_TOKEN` - a Personal Access Token with `actions:write` permission for this repo
    - `GITHUB_REPO_OWNER` - your GitHub username
    - `GITHUB_REPO_NAME` - this repository name (e.g., `slack-thread-summarizer`)
@@ -218,6 +219,7 @@ For **private channels**, manually invite the bot:
      --function-name slack-thread-summarizer-webhook \
      --environment Variables="{
        SLACK_SIGNING_SECRET=your_slack_signing_secret,
+       SLACK_SHORTCUT_CALLBACK_ID=summarize_thread,
        GITHUB_TOKEN=your_github_token,
        GITHUB_REPO_OWNER=your_github_username,
        GITHUB_REPO_NAME=slack-thread-summarizer
@@ -252,10 +254,11 @@ You can test the function using the AWS Lambda console:
 
 1. In any Slack channel, hover over a message and click the "More actions" menu (⋮)
 2. Select "Summarize Thread" from the shortcuts menu
-3. Lambda receives the shortcut and triggers GitHub Actions
-4. Check the Actions tab in your GitHub repo to see progress
-5. AI (Gemini, Claude, or Bedrock) generates a summary of the thread
-6. A PR is created in your knowledge base repo with the markdown summary
+3. You'll receive an ephemeral confirmation message with a link to the original message
+4. Lambda triggers GitHub Actions in the background
+5. Check the Actions tab in your GitHub repo to see progress
+6. AI (Gemini, Claude, or Bedrock) generates a summary of the thread
+7. A PR is created in your knowledge base repo with the markdown summary
 
 ## Project Structure
 

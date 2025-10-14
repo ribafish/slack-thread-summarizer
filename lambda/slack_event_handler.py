@@ -176,31 +176,32 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     # Handle message shortcut
     if payload.get("type") == "message_action":
         callback_id = payload.get("callback_id")
+        message = payload.get("message", {})
+        channel_id = payload.get("channel", {}).get("id")
+        message_ts = message.get("ts")
+        response_url = payload.get("response_url")
+        team_domain = payload.get("team", {}).get("domain")
 
-        # Check if this is our "Summarize Thread" shortcut
-        if callback_id == "summarize_thread":
-            message = payload.get("message", {})
-            channel_id = payload.get("channel", {}).get("id")
-            message_ts = message.get("ts")
-            response_url = payload.get("response_url")
-            team_domain = payload.get("team", {}).get("domain")
+        # Build Slack message permalink
+        # Format: https://workspace.slack.com/archives/CHANNEL_ID/pMESSAGE_TS
+        # Message timestamp needs to have the period removed (e.g., 1234567890.123456 -> p1234567890123456)
+        message_ts_formatted = "p" + message_ts.replace(".", "")
+        message_link = f"https://{team_domain}.slack.com/archives/{channel_id}/{message_ts_formatted}" if team_domain else None
+
+        expected_callback_id = os.environ["SLACK_SHORTCUT_CALLBACK_ID"]
+
+        # Check if this is our shortcut
+        if callback_id == expected_callback_id:
+            # Send immediate acknowledgment to user
+            if response_url:
+                send_slack_response(
+                    response_url,
+                    ":hourglass_flowing_sand: Processing your request... I'll generate a summary and create a pull request. Check your GitHub Actions for progress.",
+                    message_link
+                )
 
             if channel_id and message_ts:
                 print(f"Triggering workflow for channel={channel_id}, ts={message_ts}")
-
-                # Build Slack message permalink
-                # Format: https://workspace.slack.com/archives/CHANNEL_ID/pMESSAGE_TS
-                # Message timestamp needs to have the period removed (e.g., 1234567890.123456 -> p1234567890123456)
-                message_ts_formatted = "p" + message_ts.replace(".", "")
-                message_link = f"https://{team_domain}.slack.com/archives/{channel_id}/{message_ts_formatted}" if team_domain else None
-
-                # Send immediate acknowledgment to user
-                if response_url:
-                    send_slack_response(
-                        response_url,
-                        ":hourglass_flowing_sand: Processing your request... I'll generate a summary and create a pull request. Check your GitHub Actions for progress.",
-                        message_link
-                    )
 
                 # Trigger GitHub Actions workflow
                 result = trigger_github_workflow(channel_id, message_ts)
@@ -222,7 +223,18 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     "statusCode": 200,
                     "body": ""  # Shortcuts require empty body response
                 }
-
+        else:
+            print(f"Unhandled callback_id: {callback_id}")
+            if response_url:
+                send_slack_response(
+                    response_url,
+                    "Unknown action requested: {callback_id}",
+                    message_link
+                )
+            return {
+                "statusCode": 400,
+                "body": json.dumps({"error": "Unhandled callback_id"})
+            }
     # Default response for unhandled requests
     return {
         "statusCode": 200,
