@@ -54,8 +54,12 @@ def verify_slack_signature(event: Dict[str, Any]) -> bool:
     return is_valid
 
 
-def send_slack_response(response_url: str, message: str) -> None:
+def send_slack_response(response_url: str, message: str, message_link: str = None) -> None:
     """Send a response message back to Slack using the response URL."""
+    # Add message link if provided
+    if message_link:
+        message = f"{message}\n\n<{message_link}|View message>"
+
     payload = {
         "text": message,
         "response_type": "ephemeral"  # Only visible to the user who triggered it
@@ -179,15 +183,22 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             channel_id = payload.get("channel", {}).get("id")
             message_ts = message.get("ts")
             response_url = payload.get("response_url")
+            team_id = payload.get("team", {}).get("id")
 
             if channel_id and message_ts:
                 print(f"Triggering workflow for channel={channel_id}, ts={message_ts}")
+
+                # Build Slack message permalink
+                # Format: https://workspace.slack.com/archives/CHANNEL_ID/pMESSAGE_TS
+                message_ts_formatted = message_ts.replace(".", "")
+                message_link = f"https://slack.com/app_redirect?team={team_id}&channel={channel_id}&message_ts={message_ts}" if team_id else None
 
                 # Send immediate acknowledgment to user
                 if response_url:
                     send_slack_response(
                         response_url,
-                        ":hourglass_flowing_sand: Processing your request... I'll generate a summary and create a pull request. Check your GitHub Actions for progress."
+                        ":hourglass_flowing_sand: Processing your request... I'll generate a summary and create a pull request. Check your GitHub Actions for progress.",
+                        message_link
                     )
 
                 # Trigger GitHub Actions workflow
@@ -201,7 +212,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     if response_url:
                         send_slack_response(
                             response_url,
-                            f":x: Failed to trigger workflow: {result.get('error', 'Unknown error')}"
+                            f":x: Failed to trigger workflow: {result.get('error', 'Unknown error')}",
+                            message_link
                         )
 
                 # Respond to Slack to acknowledge receipt
