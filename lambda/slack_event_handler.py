@@ -1,4 +1,4 @@
-"""AWS Lambda function to handle Slack reaction_added events and trigger GitHub Actions."""
+"""AWS Lambda function to handle Slack message shortcuts and trigger GitHub Actions."""
 
 import hashlib
 import hmac
@@ -82,7 +82,7 @@ def trigger_github_workflow(channel_id: str, message_ts: str) -> Dict[str, Any]:
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Handle Slack event subscription requests.
+    """Handle Slack message shortcut requests.
 
     Args:
         event: Lambda event containing Slack request
@@ -101,25 +101,39 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "body": json.dumps({"error": "Invalid signature"})
         }
 
-    # Parse body
-    body = json.loads(event.get("body", "{}"))
+    # Parse body - shortcuts come as URL-encoded form data
+    body_str = event.get("body", "")
 
-    # Handle URL verification challenge
-    if body.get("type") == "url_verification":
-        print("Responding to URL verification challenge")
+    # Parse URL-encoded payload
+    try:
+        # Extract payload from form data
+        import urllib.parse
+        parsed = urllib.parse.parse_qs(body_str)
+
+        # Payload is in the 'payload' field
+        if "payload" in parsed:
+            payload = json.loads(parsed["payload"][0])
+        else:
+            # Try parsing as JSON directly (for testing)
+            payload = json.loads(body_str)
+    except (json.JSONDecodeError, KeyError, IndexError) as e:
+        print(f"Error parsing request body: {e}")
         return {
-            "statusCode": 200,
-            "body": json.dumps({"challenge": body.get("challenge")})
+            "statusCode": 400,
+            "body": json.dumps({"error": "Invalid request format"})
         }
 
-    # Handle event callback
-    if body.get("type") == "event_callback":
-        event_data = body.get("event", {})
+    print(f"Parsed payload: {json.dumps(payload)}")
 
-        # Check if this is a reaction_added event with pushpin emoji
-        if event_data.get("type") == "reaction_added" and event_data.get("reaction") == "pushpin":
-            channel_id = event_data.get("item", {}).get("channel")
-            message_ts = event_data.get("item", {}).get("ts")
+    # Handle message shortcut
+    if payload.get("type") == "message_action":
+        callback_id = payload.get("callback_id")
+
+        # Check if this is our "Summarize Thread" shortcut
+        if callback_id == "summarize_thread":
+            message = payload.get("message", {})
+            channel_id = payload.get("channel", {}).get("id")
+            message_ts = message.get("ts")
 
             if channel_id and message_ts:
                 print(f"Triggering workflow for channel={channel_id}, ts={message_ts}")
@@ -132,14 +146,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 else:
                     print(f"Failed to trigger workflow: {result.get('error')}")
 
-                # Always respond with 200 to Slack to acknowledge receipt
+                # Respond to Slack to acknowledge receipt
                 return {
                     "statusCode": 200,
-                    "body": json.dumps({"ok": True})
+                    "body": ""  # Shortcuts require empty body response
                 }
 
-    # Default response for unhandled events
+    # Default response for unhandled requests
     return {
         "statusCode": 200,
-        "body": json.dumps({"ok": True})
+        "body": ""
     }

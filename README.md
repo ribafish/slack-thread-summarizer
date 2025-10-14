@@ -1,11 +1,11 @@
 # Slack Thread Summarizer
 
-Serverless solution that summarizes Slack threads when marked with a 📌 (pushpin) reaction, creating a pull request with the summary to a knowledge base repository via GitHub Actions.
+Serverless solution that summarizes Slack threads using a message shortcut, creating a pull request with the summary to a knowledge base repository via GitHub Actions.
 
 ## Features
 
-- No always-on server required (serverless via GitHub Actions)
-- Triggered by Slack Workflow Builder on pushpin reactions
+- No always-on server required (serverless via GitHub Actions and Lambda)
+- Triggered by Slack message shortcut on any message
 - Fetches entire thread context
 - Summarizes conversation using Gemini, Claude, or Amazon Bedrock AI
 - Creates formatted markdown documents
@@ -15,8 +15,8 @@ Serverless solution that summarizes Slack threads when marked with a 📌 (pushp
 
 ## Architecture
 
-1. User adds 📌 reaction to Slack message
-2. Slack sends `reaction_added` event to AWS Lambda via Event Subscriptions
+1. User clicks "Summarize Thread" message shortcut on any Slack message
+2. Slack sends shortcut payload to AWS Lambda Function URL
 3. Lambda function validates request and triggers GitHub Actions workflow
 4. GitHub Actions runs Python script to fetch thread and generate summary
 5. Processor creates PR with summary in knowledge base repository
@@ -73,15 +73,19 @@ Navigate to "OAuth & Permissions" and add these Bot Token Scopes:
 - `groups:history`
 - `im:history`
 - `mpim:history`
-- `reactions:read`
 
-**Configure Event Subscriptions:**
-1. Navigate to "Event Subscriptions" in your Slack app settings
-2. Enable Events
+**Configure Message Shortcut:**
+1. Navigate to "Interactivity & Shortcuts" in your Slack app settings
+2. Enable Interactivity
 3. Set Request URL to your Lambda Function URL (you'll get this after deploying the Lambda)
-4. Under "Subscribe to bot events", add:
-   - `reaction_added`
-5. Save Changes
+4. Click "Create New Shortcut"
+5. Choose "On messages"
+6. Configure the shortcut:
+   - Name: `Summarize Thread`
+   - Short Description: `Generate a summary of this thread`
+   - Callback ID: `summarize_thread`
+7. Click "Create"
+8. Save Changes
 
 **Install App:**
 - Click "Install to Workspace"
@@ -232,25 +236,26 @@ For **private channels**, manually invite the bot:
 You can test the function using the AWS Lambda console:
 
 1. Go to your function → Test tab
-2. Create a new test event with this JSON (simulating Slack URL verification):
+2. Create a new test event with this JSON (simulating a Slack shortcut):
    ```json
    {
      "headers": {
        "x-slack-request-timestamp": "1234567890",
        "x-slack-signature": "v0=test"
      },
-     "body": "{\"type\":\"url_verification\",\"challenge\":\"test_challenge\"}"
+     "body": "payload=%7B%22type%22%3A%22message_action%22%2C%22callback_id%22%3A%22summarize_thread%22%2C%22channel%22%3A%7B%22id%22%3A%22C01234567%22%7D%2C%22message%22%3A%7B%22ts%22%3A%221234567890.123456%22%7D%7D"
    }
    ```
 3. Note: This test will fail signature verification, but you can verify the function deploys correctly
 
 ## Usage
 
-1. In any Slack channel, react to a message with 📌 (`:pushpin:`)
-2. Slack sends event to Lambda, which triggers GitHub Actions
-3. Check the Actions tab in your GitHub repo to see progress
-4. AI (Gemini, Claude, or Bedrock) generates a summary of the thread
-5. A PR is created in your knowledge base repo with the markdown summary
+1. In any Slack channel, hover over a message and click the "More actions" menu (⋮)
+2. Select "Summarize Thread" from the shortcuts menu
+3. Lambda receives the shortcut and triggers GitHub Actions
+4. Check the Actions tab in your GitHub repo to see progress
+5. AI (Gemini, Claude, or Bedrock) generates a summary of the thread
+6. A PR is created in your knowledge base repo with the markdown summary
 
 ## Project Structure
 
