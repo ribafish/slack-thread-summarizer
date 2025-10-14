@@ -1,6 +1,7 @@
 """Main entry point for the Slack Thread Summarizer."""
 
 import logging
+import os
 import sys
 
 from .config import AppConfig
@@ -75,6 +76,12 @@ def main():
 
         logger.info(f"✓ Pull request created: {pr_url}")
         print(f"PR_URL={pr_url}")
+
+        # Write to GitHub step summary if available
+        if os.getenv("GITHUB_STEP_SUMMARY"):
+            with open(os.getenv("GITHUB_STEP_SUMMARY"), "a") as f:
+                f.write(f"### Slack Thread Summarizer\n\n")
+                f.write(f"Successfully created pull request: {pr_url}\n")
 
     except Exception as e:
         logger.error(f"Failed to process thread: {e}", exc_info=True)
