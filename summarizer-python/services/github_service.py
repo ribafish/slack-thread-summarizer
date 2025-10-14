@@ -26,7 +26,8 @@ class GitHubService:
         channel_name: str,
         timestamp: str,
         workspace_id: Optional[str],
-        workspace_name: str
+        workspace_name: str,
+        last_message_ts: Optional[str] = None
     ) -> str:
         """Create a pull request with the summary.
 
@@ -71,8 +72,9 @@ class GitHubService:
             logger.error(f"Failed to create branch: {e}")
             raise
 
-        # Build Slack link
+        # Build Slack links
         slack_link = self._build_slack_link(workspace_id, channel_id, timestamp, workspace_name)
+        last_message_link = self._build_slack_link(workspace_id, channel_id, last_message_ts, workspace_name) if last_message_ts else slack_link
 
         # Prepare content based on whether we're updating or creating
         if is_update:
@@ -125,10 +127,11 @@ class GitHubService:
         body = f"""## {'Updated' if is_update else 'New'} Knowledge Base Article from Slack
 
 **Source:** [Slack Thread]({slack_link})
+**Latest Message:** [Jump to conversation]({last_message_link})
 **Channel:** #{channel_name}
 **Action:** {'Extended existing article with new information' if is_update else 'Created new article'}
 
-This PR {'updates an existing' if is_update else 'adds a new'} knowledge base article generated from a Slack thread that was marked with a :pushpin: reaction.
+This PR {'updates an existing' if is_update else 'adds a new'} knowledge base article generated from a Slack thread.
 
 ### File
 - `{file_path}`"""

@@ -48,6 +48,9 @@ def main():
 
         logger.info(f"Fetched {len(thread.messages)} messages")
 
+        # Get the last message timestamp for deeplink
+        last_message_ts = thread.messages[-1].timestamp if thread.messages else message_ts
+
         # Summarize using configured provider
         provider = config.ai.provider.lower()
         if provider == "claude":
@@ -76,11 +79,20 @@ def main():
             channel_name=thread.channel_name,
             timestamp=message_ts,
             workspace_id=thread.workspace_id,
-            workspace_name=config.slack.workspace_name
+            workspace_name=config.slack.workspace_name,
+            last_message_ts=last_message_ts
         )
 
         logger.info(f"✓ Pull request created: {pr_url}")
         print(f"PR_URL={pr_url}")
+
+        # Post message back to Slack thread
+        logger.info("Posting message to Slack thread...")
+        slack_service.post_message(
+            channel_id=channel_id,
+            text=f":white_check_mark: Summary generated! Pull request created: {pr_url}",
+            thread_ts=message_ts
+        )
 
         # Write to GitHub step summary if available
         if os.getenv("GITHUB_STEP_SUMMARY"):
