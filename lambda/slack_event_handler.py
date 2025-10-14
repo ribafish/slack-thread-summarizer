@@ -14,17 +14,31 @@ def verify_slack_signature(event: Dict[str, Any]) -> bool:
     """Verify that the request came from Slack using the signing secret."""
     slack_signing_secret = os.environ["SLACK_SIGNING_SECRET"]
 
-    # Get headers
+    # Get headers (Lambda Function URLs provide lowercase headers)
     headers = event.get("headers", {})
     timestamp = headers.get("x-slack-request-timestamp", "")
     signature = headers.get("x-slack-signature", "")
 
-    # Prevent replay attacks
-    if abs(time.time() - int(timestamp)) > 60 * 5:
+    if not timestamp or not signature:
+        print(f"Missing timestamp or signature. Headers: {headers}")
         return False
 
-    # Verify signature
+    # Prevent replay attacks
+    try:
+        if abs(time.time() - int(timestamp)) > 60 * 5:
+            print(f"Timestamp too old: {timestamp}")
+            return False
+    except ValueError:
+        print(f"Invalid timestamp format: {timestamp}")
+        return False
+
+    # Verify signature - need the raw body before base64 decoding
     body = event.get("body", "")
+
+    # If body is base64 encoded, decode it for signature verification
+    if event.get("isBase64Encoded", False):
+        import base64
+        body = base64.b64decode(body).decode("utf-8")
     sig_basestring = f"v0:{timestamp}:{body}"
 
     my_signature = "v0=" + hmac.new(
@@ -33,7 +47,11 @@ def verify_slack_signature(event: Dict[str, Any]) -> bool:
         hashlib.sha256
     ).hexdigest()
 
-    return hmac.compare_digest(my_signature, signature)
+    is_valid = hmac.compare_digest(my_signature, signature)
+    if not is_valid:
+        print(f"Signature mismatch. Expected: {my_signature}, Got: {signature}")
+
+    return is_valid
 
 
 def trigger_github_workflow(channel_id: str, message_ts: str) -> Dict[str, Any]:
