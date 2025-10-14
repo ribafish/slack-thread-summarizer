@@ -1,7 +1,10 @@
 """Slack API integration service."""
 
+import json
 import logging
-from typing import List
+from typing import List, Optional
+from urllib.request import Request, urlopen
+from urllib.error import URLError
 
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -20,29 +23,35 @@ class SlackService:
         self.config = config
         self.client = WebClient(token=config.bot_token)
 
-    def post_message(self, channel_id: str, text: str, thread_ts: str = None) -> None:
-        """Post a message to a Slack channel or thread.
+    def update_ephemeral_message(self, response_url: str, text: str, message_link: Optional[str] = None) -> None:
+        """Update an ephemeral message using the response URL.
 
         Args:
-            channel_id: The channel ID
-            text: The message text
-            thread_ts: Optional thread timestamp to reply in thread
+            response_url: The Slack response URL from the original interaction
+            text: The updated message text
+            message_link: Optional link to the original message
         """
-        try:
-            kwargs = {
-                "channel": channel_id,
-                "text": text
-            }
-            if thread_ts:
-                kwargs["thread_ts"] = thread_ts
+        if message_link:
+            text = f"{text}\n\n<{message_link}|View message>"
 
-            response = self.client.chat_postMessage(**kwargs)
-            if response["ok"]:
-                logger.debug(f"Posted message to channel {channel_id}")
-            else:
-                logger.error(f"Failed to post message: {response.get('error')}")
-        except SlackApiError as e:
-            logger.error(f"Failed to post message: {e.response['error']}")
+        payload = {
+            "text": text,
+            "replace_original": True,
+            "response_type": "ephemeral"
+        }
+
+        req = Request(
+            response_url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+
+        try:
+            with urlopen(req) as response:
+                logger.debug(f"Updated ephemeral message: {response.status}")
+        except URLError as e:
+            logger.error(f"Failed to update ephemeral message: {e}")
 
     def fetch_thread(self, channel_id: str, thread_ts: str) -> SlackThread:
         """Fetch a thread from Slack.

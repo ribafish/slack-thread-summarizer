@@ -70,7 +70,6 @@ Navigate to "OAuth & Permissions" and add these Bot Token Scopes:
 - `channels:history`
 - `channels:join` - allows bot to auto-join public channels
 - `channels:read`
-- `chat:write` - allows bot to post messages
 - `groups:history`
 - `im:history`
 - `mpim:history`
@@ -260,7 +259,7 @@ You can test the function using the AWS Lambda console:
 5. Check the Actions tab in your GitHub repo to see progress
 6. AI (Gemini, Claude, or Bedrock) generates a summary of the thread
 7. A PR is created in your knowledge base repo with the markdown summary
-8. The bot posts a reply in the Slack thread with the PR link
+8. The ephemeral message updates with the PR link when complete
 
 ## Project Structure
 

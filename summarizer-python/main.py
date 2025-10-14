@@ -86,13 +86,22 @@ def main():
         logger.info(f"✓ Pull request created: {pr_url}")
         print(f"PR_URL={pr_url}")
 
-        # Post message back to Slack thread
-        logger.info("Posting message to Slack thread...")
-        slack_service.post_message(
-            channel_id=channel_id,
-            text=f":white_check_mark: Summary generated! Pull request created: {pr_url}",
-            thread_ts=message_ts
-        )
+        # Update ephemeral message if response_url is available
+        response_url = os.getenv("SLACK_RESPONSE_URL")
+        if response_url:
+            logger.info("Updating ephemeral message...")
+            # Build message link
+            workspace_name = config.slack.workspace_name
+            message_id = message_ts.replace(".", "")
+            message_link = f"https://{workspace_name}.slack.com/archives/{channel_id}/p{message_id}" if workspace_name else None
+
+            slack_service.update_ephemeral_message(
+                response_url=response_url,
+                text=f":white_check_mark: Summary generated! Pull request created: {pr_url}",
+                message_link=message_link
+            )
+        else:
+            logger.warning("No response_url available, skipping ephemeral message update")
 
         # Write to GitHub step summary if available
         if os.getenv("GITHUB_STEP_SUMMARY"):

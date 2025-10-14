@@ -79,7 +79,7 @@ def send_slack_response(response_url: str, message: str, message_link: str = Non
         print(f"Error sending response to Slack: {e}")
 
 
-def trigger_github_workflow(channel_id: str, message_ts: str) -> Dict[str, Any]:
+def trigger_github_workflow(channel_id: str, message_ts: str, response_url: str) -> Dict[str, Any]:
     """Trigger GitHub Actions workflow via API."""
     github_token = os.environ["GITHUB_TOKEN"]
     repo_owner = os.environ["GITHUB_REPO_OWNER"]
@@ -91,7 +91,8 @@ def trigger_github_workflow(channel_id: str, message_ts: str) -> Dict[str, Any]:
         "ref": "main",
         "inputs": {
             "channel_id": channel_id,
-            "message_ts": message_ts
+            "message_ts": message_ts,
+            "response_url": response_url
         }
     }
 
@@ -200,11 +201,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     message_link
                 )
 
-            if channel_id and message_ts:
+            if channel_id and message_ts and response_url:
                 print(f"Triggering workflow for channel={channel_id}, ts={message_ts}")
 
                 # Trigger GitHub Actions workflow
-                result = trigger_github_workflow(channel_id, message_ts)
+                result = trigger_github_workflow(channel_id, message_ts, response_url)
 
                 if result["success"]:
                     print(f"Successfully triggered GitHub workflow")

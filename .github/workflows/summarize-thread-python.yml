@@ -11,8 +11,8 @@ on:
         description: 'Message timestamp'
         required: true
         type: string
-      user_id:
-        description: 'User who added the reaction'
+      response_url:
+        description: 'Slack response URL for ephemeral message updates'
         required: false
         type: string
 
@@ -40,6 +40,7 @@ jobs:
           AI_PROVIDER: ${{ vars.AI_PROVIDER || 'gemini' }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_WORKSPACE_NAME: ${{ vars.SLACK_WORKSPACE_NAME }}
+          SLACK_RESPONSE_URL: ${{ inputs.response_url }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.KB_GITHUB_TOKEN }}
