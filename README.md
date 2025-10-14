@@ -44,7 +44,7 @@ Add these **Repository Secrets**:
 - `ANTHROPIC_API_KEY` - your Anthropic API key (if using Claude)
 - `AWS_ACCESS_KEY_ID` - your AWS access key (if using Bedrock)
 - `AWS_SECRET_ACCESS_KEY` - your AWS secret key (if using Bedrock)
-- `GITHUB_TOKEN` - automatically provided by GitHub Actions (no action needed)
+- `KB_GITHUB_TOKEN` - your GitHub Personal Access Token (PAT) with access to the knowledge base repo
 
 Add these **Repository Variables**:
 - `AI_PROVIDER` - which AI to use: `gemini` (default), `claude`, or `bedrock`
@@ -90,7 +90,9 @@ Create a repository where summaries will be stored (or use an existing one):
      - Contents: Read and write
      - Pull requests: Read and write
      - Metadata: Read-only (automatically included)
-3. Copy the token
+3. Copy the token and add it as `KB_GITHUB_TOKEN` secret in your repository
+
+**Note**: The default `GITHUB_TOKEN` provided by GitHub Actions cannot be used because it doesn't have permission to create pull requests in other repositories. You must use a Personal Access Token (PAT).
 
 ### 6. Invite Slack Bot to Private Channels (Optional)
 
@@ -191,7 +193,7 @@ export SLACK_BOT_TOKEN="xoxb-..."
 export SLACK_WORKSPACE_NAME="your-workspace-name"
 export GEMINI_API_KEY="..."
 export ANTHROPIC_API_KEY="..."
-export GITHUB_TOKEN="..."
+export KB_GITHUB_TOKEN="..."
 export KB_REPO_OWNER="..."
 export KB_REPO_NAME="..."
 export AI_PROVIDER="gemini"  # or "claude" or "bedrock"
@@ -213,7 +215,7 @@ python -m summarizer-python.main C01234ABCD 1234567890.123456
 ### Workflow not triggering
 - Verify Workflow is published in Slack
 - Check webhook URL is correct
-- Ensure GitHub token has Contents and Pull requests permissions
+- Ensure `KB_GITHUB_TOKEN` has Contents and Pull requests permissions
 - Review Workflow execution history in Slack
 
 ### GitHub Actions failing
@@ -227,9 +229,10 @@ python -m summarizer-python.main C01234ABCD 1234567890.123456
 - Review prompt size (very long threads may exceed limits)
 
 ### GitHub PR creation fails
-- Verify token has Contents and Pull requests permissions
+- Verify `KB_GITHUB_TOKEN` has Contents and Pull requests permissions
 - Ensure the knowledge base repository exists
 - Check token has access to the specific repository
+- Confirm you're using `KB_GITHUB_TOKEN` (PAT) and not the default `GITHUB_TOKEN`
 
 ## Switching AI Providers
 
