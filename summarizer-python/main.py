@@ -8,6 +8,7 @@ from .config import AppConfig
 from .services.slack_service import SlackService
 from .services.gemini_service import GeminiService
 from .services.claude_service import ClaudeService
+from .services.bedrock_service import BedrockService
 from .services.github_service import GitHubService
 
 # Configure logging
@@ -57,8 +58,12 @@ def main():
             logger.info("Generating summary with Gemini...")
             gemini_service = GeminiService(config.gemini)
             summary = gemini_service.summarize(thread)
+        elif provider == "bedrock":
+            logger.info("Generating summary with Amazon Bedrock...")
+            bedrock_service = BedrockService(config.bedrock)
+            summary = bedrock_service.summarize(thread)
         else:
-            logger.error(f"Unknown AI provider: {provider}. Use 'gemini' or 'claude'")
+            logger.error(f"Unknown AI provider: {provider}. Use 'gemini', 'claude', or 'bedrock'")
             sys.exit(1)
 
         logger.info(f"Summary generated: {len(summary)} characters")

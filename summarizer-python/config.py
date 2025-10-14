@@ -33,6 +33,13 @@ class GeminiConfig:
 
 
 @dataclass
+class BedrockConfig:
+    """Amazon Bedrock configuration."""
+    region: str = "us-east-1"
+    model: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+
+
+@dataclass
 class GitHubConfig:
     """GitHub API configuration."""
     token: str
@@ -48,6 +55,7 @@ class AppConfig:
     slack: SlackConfig
     claude: ClaudeConfig
     gemini: GeminiConfig
+    bedrock: BedrockConfig
     github: GitHubConfig
 
     @classmethod
@@ -68,6 +76,10 @@ class AppConfig:
             gemini=GeminiConfig(
                 api_key=os.getenv("GEMINI_API_KEY", ""),
                 model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
+            ),
+            bedrock=BedrockConfig(
+                region=os.getenv("AWS_REGION", "us-east-1"),
+                model=os.getenv("BEDROCK_MODEL", "anthropic.claude-3-5-sonnet-20241022-v2:0")
             ),
             github=GitHubConfig(
                 token=os.getenv("GITHUB_TOKEN", ""),
