@@ -104,6 +104,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     # Parse body - shortcuts come as URL-encoded form data
     body_str = event.get("body", "")
 
+    # Decode base64 if needed
+    if event.get("isBase64Encoded", False):
+        import base64
+        body_str = base64.b64decode(body_str).decode("utf-8")
+
     # Parse URL-encoded payload
     try:
         # Extract payload from form data
