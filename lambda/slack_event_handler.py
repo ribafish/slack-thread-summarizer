@@ -9,11 +9,51 @@ from typing import Any, Dict
 from urllib.request import Request, urlopen
 from urllib.error import URLError
 
+import boto3
+from botocore.exceptions import ClientError
 
-def verify_slack_signature(event: Dict[str, Any]) -> bool:
-    """Verify that the request came from Slack using the signing secret."""
-    slack_signing_secret = os.environ["SLACK_SIGNING_SECRET"]
+# Cache for secrets to avoid repeated API calls
+_secrets_cache = {}
 
+
+def get_secret(secret_name: str) -> str:
+    """Retrieve a secret from AWS Secrets Manager with caching.
+
+    Args:
+        secret_name: Name of the secret in Secrets Manager
+
+    Returns:
+        The secret value as a string
+    """
+    # Return cached value if available
+    if secret_name in _secrets_cache:
+        return _secrets_cache[secret_name]
+
+    session = boto3.session.Session()
+    client = session.client(service_name='secretsmanager')
+
+    try:
+        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+        secret = get_secret_value_response['SecretString']
+
+        # Cache the secret
+        _secrets_cache[secret_name] = secret
+        return secret
+    except ClientError as e:
+        print(f"Error retrieving secret {secret_name}: {e}")
+        raise
+
+
+def verify_slack_signature(event: Dict[str, Any], slack_signing_secret: str) -> bool:
+    """Verify that the request came from Slack using the signing secret.
+
+    Args:
+        event: Lambda event containing the request
+        slack_signing_secret: Slack signing secret for verification
+
+    Returns:
+        True if signature is valid, False otherwise
+    """
     # Get headers (Lambda Function URLs provide lowercase headers)
     headers = event.get("headers", {})
     timestamp = headers.get("x-slack-request-timestamp", "")
@@ -79,9 +119,18 @@ def send_slack_response(response_url: str, message: str, message_link: str = Non
         print(f"Error sending response to Slack: {e}")
 
 
-def trigger_github_workflow(channel_id: str, message_ts: str, response_url: str) -> Dict[str, Any]:
-    """Trigger GitHub Actions workflow via API."""
-    github_token = os.environ["GITHUB_TOKEN"]
+def trigger_github_workflow(channel_id: str, message_ts: str, response_url: str, github_token: str) -> Dict[str, Any]:
+    """Trigger GitHub Actions workflow via API.
+
+    Args:
+        channel_id: Slack channel ID
+        message_ts: Message timestamp
+        response_url: Slack response URL for ephemeral message updates
+        github_token: GitHub personal access token
+
+    Returns:
+        Dict with success status and optional error message
+    """
     repo_owner = os.environ["GITHUB_REPO_OWNER"]
     repo_name = os.environ["GITHUB_REPO_NAME"]
 
@@ -137,8 +186,19 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     print(f"Received event: {json.dumps(event)}")
 
+    # Retrieve secrets from AWS Secrets Manager
+    try:
+        slack_signing_secret = get_secret("lambda/slack-thread-summarizer-webhook/slack_signing_secret")
+        github_token = get_secret("lambda/slack-thread-summarizer-webhook/github_pat")
+    except Exception as e:
+        print(f"Failed to retrieve secrets: {e}")
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"error": "Internal server error"})
+        }
+
     # Verify Slack signature
-    if not verify_slack_signature(event):
+    if not verify_slack_signature(event, slack_signing_secret):
         print("Invalid Slack signature")
         return {
             "statusCode": 401,
@@ -205,7 +265,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 print(f"Triggering workflow for channel={channel_id}, ts={message_ts}")
 
                 # Trigger GitHub Actions workflow
-                result = trigger_github_workflow(channel_id, message_ts, response_url)
+                result = trigger_github_workflow(channel_id, message_ts, response_url, github_token)
 
                 if result["success"]:
                     print(f"Successfully triggered GitHub workflow")

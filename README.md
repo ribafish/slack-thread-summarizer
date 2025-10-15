@@ -143,7 +143,21 @@ For **private channels**, manually invite the bot:
 
 ### Option 1: AWS Console (Recommended for Beginners)
 
-1. **Create Lambda Function:**
+1. **Create Secrets in AWS Secrets Manager:**
+   - Go to AWS Secrets Manager Console
+   - Click "Store a new secret"
+   - Choose "Other type of secret"
+   - Create two secrets:
+
+     **Secret 1: Slack Signing Secret**
+     - Secret name: `lambda/slack-thread-summarizer-webhook/slack_signing_secret`
+     - Secret value: Plaintext, paste your Slack signing secret from Slack App → Basic Information → App Credentials
+
+     **Secret 2: GitHub Token**
+     - Secret name: `lambda/slack-thread-summarizer-webhook/github_token`
+     - Secret value: Plaintext, paste your GitHub Personal Access Token with `actions:write` permission
+
+2. **Create Lambda Function:**
    - Go to AWS Lambda Console
    - Click "Create function"
    - Choose "Author from scratch"
@@ -152,39 +166,77 @@ For **private channels**, manually invite the bot:
    - Architecture: x86_64
    - Click "Create function"
 
-2. **Upload Function Code:**
+3. **Upload Function Code:**
    - Copy the code from `lambda/slack_event_handler.py`
    - In the Lambda console, paste it into the code editor
    - Click "Deploy"
 
-3. **Configure Environment Variables:**
+4. **Add boto3 Layer (if needed):**
+   - boto3 is pre-installed in Lambda Python runtime, but if you need a specific version:
+   - Go to Layers → Add a layer → AWS layers → AWSSDKPandas-Python312
+
+5. **Configure Environment Variables:**
    Add the following environment variables in Configuration → Environment variables:
-   - `SLACK_SIGNING_SECRET` - from Slack App → Basic Information → App Credentials
    - `SLACK_SHORTCUT_CALLBACK_ID` - the callback ID from your shortcut (default: `summarize_thread`)
-   - `GITHUB_TOKEN` - a Personal Access Token with `actions:write` permission for this repo
    - `GITHUB_REPO_OWNER` - your GitHub username
    - `GITHUB_REPO_NAME` - this repository name (e.g., `slack-thread-summarizer`)
+   - `GITHUB_REPO_WORKFLOW` - workflow filename (default: `summarize-thread-python.yml`)
 
-4. **Create Function URL:**
+6. **Configure IAM Permissions:**
+   - Go to Configuration → Permissions
+   - Click on the execution role name
+   - Click "Add permissions" → "Attach policies"
+   - Create a new inline policy with this JSON:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "secretsmanager:GetSecretValue"
+         ],
+         "Resource": [
+           "arn:aws:secretsmanager:*:*:secret:lambda/slack-thread-summarizer-webhook/*"
+         ]
+       }
+     ]
+   }
+   ```
+
+7. **Create Function URL:**
    - Go to Configuration → Function URL
    - Click "Create function URL"
    - Auth type: NONE (Slack handles authentication via signature verification)
    - Click "Save"
    - Copy the Function URL - you'll need this for Slack Event Subscriptions
 
-5. **Configure Timeout:**
+8. **Configure Timeout:**
    - Go to Configuration → General configuration
    - Edit timeout to 10 seconds (default 3s may be too short)
 
 ### Option 2: AWS CLI Deployment
 
-1. **Package the function:**
+1. **Create secrets in AWS Secrets Manager:**
+   ```bash
+   # Create Slack signing secret
+   aws secretsmanager create-secret \
+     --name lambda/slack-thread-summarizer-webhook/slack_signing_secret \
+     --secret-string "your_slack_signing_secret_here"
+
+   # Create GitHub Token
+   aws secretsmanager create-secret \
+     --name lambda/slack-thread-summarizer-webhook/github_token \
+     --secret-string "your_github_token_here"
+   ```
+
+2. **Package the function:**
    ```bash
    cd lambda
    zip function.zip slack_event_handler.py
    ```
 
-2. **Create IAM role for Lambda:**
+3. **Create IAM role for Lambda:**
    ```bash
    aws iam create-role \
      --role-name lambda-slack-webhook-role \
@@ -200,9 +252,22 @@ For **private channels**, manually invite the bot:
    aws iam attach-role-policy \
      --role-name lambda-slack-webhook-role \
      --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+   # Add Secrets Manager permissions
+   aws iam put-role-policy \
+     --role-name lambda-slack-webhook-role \
+     --policy-name SecretsManagerAccess \
+     --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [{
+         "Effect": "Allow",
+         "Action": ["secretsmanager:GetSecretValue"],
+         "Resource": ["arn:aws:secretsmanager:*:*:secret:lambda/slack-thread-summarizer-webhook/*"]
+       }]
+     }'
    ```
 
-3. **Create the Lambda function:**
+4. **Create the Lambda function:**
    ```bash
    aws lambda create-function \
      --function-name slack-thread-summarizer-webhook \
@@ -213,20 +278,19 @@ For **private channels**, manually invite the bot:
      --timeout 10
    ```
 
-4. **Set environment variables:**
+5. **Set environment variables:**
    ```bash
    aws lambda update-function-configuration \
      --function-name slack-thread-summarizer-webhook \
      --environment Variables="{
-       SLACK_SIGNING_SECRET=your_slack_signing_secret,
        SLACK_SHORTCUT_CALLBACK_ID=summarize_thread,
-       GITHUB_TOKEN=your_github_token,
        GITHUB_REPO_OWNER=your_github_username,
-       GITHUB_REPO_NAME=slack-thread-summarizer
+       GITHUB_REPO_NAME=slack-thread-summarizer,
+       GITHUB_REPO_WORKFLOW=summarize-thread-python.yml
      }"
    ```
 
-5. **Create Function URL:**
+6. **Create Function URL:**
    ```bash
    aws lambda create-function-url-config \
      --function-name slack-thread-summarizer-webhook \
@@ -316,17 +380,25 @@ python -m summarizer-python.main C01234ABCD 1234567890.123456
 - Verify Slack Event Subscriptions Request URL matches Lambda Function URL
 - Ensure Lambda Function URL auth type is set to NONE
 - Check Lambda environment variables are set correctly
+- Verify Lambda has IAM permissions to access Secrets Manager
+
+### Secrets Manager errors
+- Ensure secrets are created with exact names:
+  - `lambda/slack-thread-summarizer-webhook/slack_signing_secret`
+  - `lambda/slack-thread-summarizer-webhook/github_token`
+- Verify Lambda execution role has `secretsmanager:GetSecretValue` permission
+- Check CloudWatch Logs for specific error messages
 
 ### Slack signature verification failing
-- Verify `SLACK_SIGNING_SECRET` environment variable is correct
+- Verify the Slack signing secret in Secrets Manager is correct
 - Check it matches the value in Slack App → Basic Information → App Credentials → Signing Secret
-- Ensure there are no extra spaces or newlines in the secret
+- Ensure there are no extra spaces or newlines in the secret value
 
 ### GitHub Actions not triggering from Lambda
 - Check Lambda CloudWatch logs for API errors
-- Verify `GITHUB_TOKEN` in Lambda has `actions:write` scope
-- Ensure `GITHUB_REPO_OWNER` and `GITHUB_REPO_NAME` are correct
-- Check GitHub Actions workflow file exists at `.github/workflows/summarize-thread-python.yml`
+- Verify GitHub token in Secrets Manager (`lambda/slack-thread-summarizer-webhook/github_token`) has `actions:write` scope
+- Ensure `GITHUB_REPO_OWNER`, `GITHUB_REPO_NAME`, and `GITHUB_REPO_WORKFLOW` environment variables are correct
+- Check GitHub Actions workflow file exists (default: `.github/workflows/summarize-thread-python.yml`)
 
 ### GitHub Actions failing
 - Check Actions tab for error logs
