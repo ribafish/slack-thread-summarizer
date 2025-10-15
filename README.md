@@ -183,26 +183,77 @@ For **private channels**, manually invite the bot:
    - `GITHUB_REPO_WORKFLOW` - workflow filename (default: `summarize-thread-python.yml`)
 
 6. **Configure IAM Permissions:**
+
+   **Option A: Same Account (Lambda and Secrets in same account)**
    - Go to Configuration → Permissions
    - Click on the execution role name
    - Click "Add permissions" → "Attach policies"
-   - Create a new inline policy with this JSON:
+   - Create a new inline policy with this JSON (replace `YOUR_REGION` and `YOUR_ACCOUNT_ID`):
    ```json
    {
      "Version": "2012-10-17",
      "Statement": [
        {
          "Effect": "Allow",
-         "Action": [
-           "secretsmanager:GetSecretValue"
-         ],
+         "Action": "secretsmanager:GetSecretValue",
          "Resource": [
-           "arn:aws:secretsmanager:*:*:secret:lambda/slack-thread-summarizer-webhook/*"
+           "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:lambda/slack-thread-summarizer-webhook/slack_signing_secret-*",
+           "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:lambda/slack-thread-summarizer-webhook/github_token-*"
          ]
        }
      ]
    }
    ```
+
+   **Option B: Cross-Account (Lambda in Account Y, Secrets in Account X)**
+
+   First, in **Account X** (where secrets are stored), add resource-based policies to both secrets:
+   ```bash
+   # For slack_signing_secret
+   aws secretsmanager put-resource-policy \
+     --secret-id lambda/slack-thread-summarizer-webhook/slack_signing_secret \
+     --resource-policy '{
+       "Version": "2012-10-17",
+       "Statement": [{
+         "Effect": "Allow",
+         "Principal": {"AWS": "arn:aws:iam::ACCOUNT_Y_ID:role/lambda-slack-webhook-role"},
+         "Action": "secretsmanager:GetSecretValue",
+         "Resource": "*"
+       }]
+     }'
+
+   # For github_token
+   aws secretsmanager put-resource-policy \
+     --secret-id lambda/slack-thread-summarizer-webhook/github_token \
+     --resource-policy '{
+       "Version": "2012-10-17",
+       "Statement": [{
+         "Effect": "Allow",
+         "Principal": {"AWS": "arn:aws:iam::ACCOUNT_Y_ID:role/lambda-slack-webhook-role"},
+         "Action": "secretsmanager:GetSecretValue",
+         "Resource": "*"
+       }]
+     }'
+   ```
+
+   Then, in **Account Y** (where Lambda is deployed), add the same IAM policy as Option A but with `ACCOUNT_X_ID`:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": "secretsmanager:GetSecretValue",
+         "Resource": [
+           "arn:aws:secretsmanager:YOUR_REGION:ACCOUNT_X_ID:secret:lambda/slack-thread-summarizer-webhook/slack_signing_secret-*",
+           "arn:aws:secretsmanager:YOUR_REGION:ACCOUNT_X_ID:secret:lambda/slack-thread-summarizer-webhook/github_token-*"
+         ]
+       }
+     ]
+   }
+   ```
+
+   **Note:** The `-*` suffix is required because AWS Secrets Manager appends a random 6-character suffix to secret ARNs.
 
 7. **Create Function URL:**
    - Go to Configuration → Function URL
@@ -254,6 +305,7 @@ For **private channels**, manually invite the bot:
      --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
    # Add Secrets Manager permissions
+   # Option A: Same account (replace YOUR_REGION and YOUR_ACCOUNT_ID)
    aws iam put-role-policy \
      --role-name lambda-slack-webhook-role \
      --policy-name SecretsManagerAccess \
@@ -262,9 +314,19 @@ For **private channels**, manually invite the bot:
        "Statement": [{
          "Effect": "Allow",
          "Action": ["secretsmanager:GetSecretValue"],
-         "Resource": ["arn:aws:secretsmanager:*:*:secret:lambda/slack-thread-summarizer-webhook/*"]
+         "Resource": [
+           "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:lambda/slack-thread-summarizer-webhook/slack_signing_secret-*",
+           "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:lambda/slack-thread-summarizer-webhook/github_token-*"
+         ]
        }]
      }'
+
+   # Option B: Cross-account access
+   # First, in Account X (secrets account), run:
+   # aws secretsmanager put-resource-policy --secret-id lambda/slack-thread-summarizer-webhook/slack_signing_secret --resource-policy '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::ACCOUNT_Y_ID:role/lambda-slack-webhook-role"},"Action":"secretsmanager:GetSecretValue","Resource":"*"}]}'
+   # aws secretsmanager put-resource-policy --secret-id lambda/slack-thread-summarizer-webhook/github_token --resource-policy '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::ACCOUNT_Y_ID:role/lambda-slack-webhook-role"},"Action":"secretsmanager:GetSecretValue","Resource":"*"}]}'
+   #
+   # Then, in Account Y (Lambda account), use the policy above but with ACCOUNT_X_ID instead of YOUR_ACCOUNT_ID
    ```
 
 4. **Create the Lambda function:**
@@ -383,11 +445,17 @@ python -m summarizer-python.main C01234ABCD 1234567890.123456
 - Verify Lambda has IAM permissions to access Secrets Manager
 
 ### Secrets Manager errors
+- **ResourceNotFoundException**: Verify IAM policy uses correct ARN format:
+  - Must include specific region and account ID (no wildcards: `*:*`)
+  - Must include `-*` suffix to match the random suffix AWS adds to secrets
+  - Example: `arn:aws:secretsmanager:eu-central-1:123456789012:secret:lambda/slack-thread-summarizer-webhook/slack_signing_secret-*`
 - Ensure secrets are created with exact names:
   - `lambda/slack-thread-summarizer-webhook/slack_signing_secret`
   - `lambda/slack-thread-summarizer-webhook/github_token`
 - Verify Lambda execution role has `secretsmanager:GetSecretValue` permission
+- **Cross-account access**: Both resource-based policy on secret (in Account X) AND IAM policy on Lambda role (in Account Y) are required
 - Check CloudWatch Logs for specific error messages
+- Verify Lambda and secrets are in the same AWS region
 
 ### Slack signature verification failing
 - Verify the Slack signing secret in Secrets Manager is correct

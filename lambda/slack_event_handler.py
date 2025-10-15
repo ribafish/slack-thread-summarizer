@@ -30,7 +30,8 @@ def get_secret(secret_name: str) -> str:
         return _secrets_cache[secret_name]
 
     session = boto3.session.Session()
-    client = session.client(service_name='secretsmanager')
+    client = session.client(service_name='secretsmanager',
+                            region_name='eu-central-1')
 
     try:
         get_secret_value_response = client.get_secret_value(SecretId=secret_name)
@@ -133,8 +134,9 @@ def trigger_github_workflow(channel_id: str, message_ts: str, response_url: str,
     """
     repo_owner = os.environ["GITHUB_REPO_OWNER"]
     repo_name = os.environ["GITHUB_REPO_NAME"]
+    repo_workflow= os.environ["GITHUB_REPO_WORKFLOW"]
 
-    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/actions/workflows/summarize-thread-python.yml/dispatches"
+    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/actions/workflows/{repo_workflow}/dispatches"
 
     payload = {
         "ref": "main",
@@ -189,7 +191,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     # Retrieve secrets from AWS Secrets Manager
     try:
         slack_signing_secret = get_secret("lambda/slack-thread-summarizer-webhook/slack_signing_secret")
-        github_token = get_secret("lambda/slack-thread-summarizer-webhook/github_pat")
+        github_token = get_secret("lambda/slack-thread-summarizer-webhook/github_token")
     except Exception as e:
         print(f"Failed to retrieve secrets: {e}")
         return {
