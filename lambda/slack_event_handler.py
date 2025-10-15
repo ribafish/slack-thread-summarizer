@@ -188,12 +188,41 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     print(f"Received event: {json.dumps(event)}")
 
+    # Parse body first to get response_url for error reporting
+    body_str = event.get("body", "")
+    if event.get("isBase64Encoded", False):
+        import base64
+        body_str = base64.b64decode(body_str).decode("utf-8")
+
+    # Try to extract response_url early for error reporting
+    response_url_for_errors = None
+    try:
+        import urllib.parse
+        parsed = urllib.parse.parse_qs(body_str)
+        if "payload" in parsed:
+            payload_data = json.loads(parsed["payload"][0])
+            response_url_for_errors = payload_data.get("response_url")
+    except Exception:
+        pass  # If we can't parse, continue without response_url
+
     # Retrieve secrets from AWS Secrets Manager
     try:
         slack_signing_secret = get_secret("lambda/slack-thread-summarizer-webhook/slack_signing_secret")
         github_token = get_secret("lambda/slack-thread-summarizer-webhook/github_token")
     except Exception as e:
-        print(f"Failed to retrieve secrets: {e}")
+        error_msg = str(e)
+        print(f"Failed to retrieve secrets: {error_msg}")
+
+        # Send error to user if we have response_url
+        if response_url_for_errors:
+            try:
+                send_slack_response(
+                    response_url_for_errors,
+                    f":x: Configuration error: Failed to retrieve secrets from AWS Secrets Manager. {error_msg}"
+                )
+            except Exception as send_error:
+                print(f"Failed to send error message to Slack: {send_error}")
+
         return {
             "statusCode": 500,
             "body": json.dumps({"error": "Internal server error"})
@@ -207,15 +236,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "body": json.dumps({"error": "Invalid signature"})
         }
 
-    # Parse body - shortcuts come as URL-encoded form data
-    body_str = event.get("body", "")
-
-    # Decode base64 if needed
-    if event.get("isBase64Encoded", False):
-        import base64
-        body_str = base64.b64decode(body_str).decode("utf-8")
-
-    # Parse URL-encoded payload
+    # Parse URL-encoded payload (body_str already extracted above)
     try:
         # Extract payload from form data
         import urllib.parse
